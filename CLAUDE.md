@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Go CLI application for intelligent household chore scheduling. Uses SQLite for storage and Cobra for CLI commands. This repository contains comprehensive design documents; the Go source code implementation follows the specifications in `/docs/`.
+Go CLI application for intelligent household chore scheduling. Uses SQLite for storage and Cobra for CLI commands. Design documents in `/docs/` describe the original specifications.
 
 ## Build Commands
 
