@@ -423,7 +423,7 @@ func (c *CLI) handleToday() error {
 	fmt.Printf("Tasks for today (%s):\n\n", today.Format("Mon, Jan 2 2006"))
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header("ID", "Name", "Effort", "Status")
+	table.Header("ID", "Name", "Room", "Effort", "Status")
 
 	totalEffort := 0
 	for _, st := range scheduled {
@@ -440,6 +440,7 @@ func (c *CLI) handleToday() error {
 		table.Append([]string{
 			strconv.FormatInt(task.ID, 10),
 			task.Name,
+			task.Room,
 			strconv.Itoa(task.Effort),
 			status,
 		})
@@ -484,7 +485,7 @@ func (c *CLI) handleUpcoming(days int) error {
 			if err != nil {
 				continue
 			}
-			fmt.Printf("  [%d] %s (effort: %d)\n", task.ID, task.Name, task.Effort)
+			fmt.Printf("  [%d] %s [%s] (effort: %d)\n", task.ID, task.Name, task.Room, task.Effort)
 			totalEffort += task.Effort
 		}
 		fmt.Printf("  Total effort: %d\n\n", totalEffort)
