@@ -162,6 +162,121 @@ func (s *Scheduler) Reschedule() error {
 	return s.Schedule()
 }
 
+// RescheduleFromDate reschedules all tasks from a given date onwards
+// This is used to optimize the schedule after an early completion frees up capacity
+func (s *Scheduler) RescheduleFromDate(fromDate time.Time) error {
+	// Normalize date and use today if fromDate is in the past
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	fromDate = time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.UTC)
+
+	if fromDate.Before(today) {
+		fromDate = today
+	}
+
+	// Get all scheduled entries from that date forward
+	scheduled, err := s.scheduledRepo.GetFromDate(fromDate)
+	if err != nil {
+		return fmt.Errorf("failed to get scheduled tasks: %w", err)
+	}
+
+	if len(scheduled) == 0 {
+		return nil
+	}
+
+	// Collect unique task IDs
+	taskIDs := make(map[int64]bool)
+	for _, st := range scheduled {
+		taskIDs[st.TaskID] = true
+	}
+
+	// Fetch the actual tasks
+	var tasks []*models.Task
+	for taskID := range taskIDs {
+		task, err := s.taskRepo.Get(taskID)
+		if err != nil {
+			continue // Task may have been deleted
+		}
+		tasks = append(tasks, task)
+	}
+
+	// Delete the schedule entries for these tasks
+	for taskID := range taskIDs {
+		if err := s.scheduledRepo.ClearForTask(taskID); err != nil {
+			return fmt.Errorf("failed to clear schedule for task %d: %w", taskID, err)
+		}
+	}
+
+	// Get max effort
+	maxEffort, err := s.configRepo.GetMaxDailyEffort()
+	if err != nil {
+		return fmt.Errorf("failed to get max daily effort: %w", err)
+	}
+
+	// Sort tasks by priority
+	tasks = SortByPriority(tasks)
+
+	// Reschedule each task
+	for _, task := range tasks {
+		startDate := s.getSchedulingStartDate(task)
+		// Use the later of fromDate or the task's natural start date
+		if startDate.Before(fromDate) {
+			startDate = fromDate
+		}
+
+		date, err := s.FindNextAvailableDay(task.Effort, startDate, maxEffort)
+		if err != nil {
+			return fmt.Errorf("failed to find available day for task %d: %w", task.ID, err)
+		}
+
+		st := models.NewScheduledTask(task.ID, date)
+		if err := s.scheduledRepo.Create(st); err != nil {
+			return fmt.Errorf("failed to schedule task %d: %w", task.ID, err)
+		}
+	}
+
+	return nil
+}
+
+// CompleteTaskAndReschedule handles completing a task and rescheduling affected tasks
+// Returns the original scheduled date (if any), whether it was an early completion, and any error
+func (s *Scheduler) CompleteTaskAndReschedule(taskID int64) (originalDate *time.Time, wasEarly bool, err error) {
+	// Get current schedule BEFORE clearing
+	scheduled, err := s.scheduledRepo.GetByTask(taskID)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to get task schedule: %w", err)
+	}
+
+	// Find the future scheduled date (if any)
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	var futureDate *time.Time
+	for _, st := range scheduled {
+		schedDate := time.Date(st.ScheduledDate.Year(), st.ScheduledDate.Month(), st.ScheduledDate.Day(), 0, 0, 0, 0, time.UTC)
+		if schedDate.After(today) {
+			futureDate = &schedDate
+			break
+		}
+	}
+
+	// Clear the schedule
+	if err := s.ClearSchedule(taskID); err != nil {
+		return nil, false, fmt.Errorf("failed to clear schedule: %w", err)
+	}
+
+	// If scheduled date was in future, this is an early completion
+	if futureDate != nil {
+		// Reschedule tasks from the original date to fill freed capacity
+		if err := s.RescheduleFromDate(*futureDate); err != nil {
+			return futureDate, true, fmt.Errorf("failed to reschedule from date: %w", err)
+		}
+		return futureDate, true, nil
+	}
+
+	return nil, false, nil
+}
+
 // getSchedulingStartDate determines when to start looking for available days
 func (s *Scheduler) getSchedulingStartDate(task *models.Task) time.Time {
 	now := time.Now()

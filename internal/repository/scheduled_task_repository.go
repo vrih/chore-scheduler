@@ -14,6 +14,7 @@ type ScheduledTaskRepository interface {
 	Delete(id int64) error
 	GetByDate(date time.Time) ([]*models.ScheduledTask, error)
 	GetByTask(taskID int64) ([]*models.ScheduledTask, error)
+	GetFromDate(date time.Time) ([]*models.ScheduledTask, error)
 	ClearForTask(taskID int64) error
 	GetDailyEffort(date time.Time) (int, error)
 	ClearAll() error
@@ -161,4 +162,30 @@ func (r *scheduledTaskRepository) IsTaskScheduledOnDate(taskID int64, date time.
 		return false, fmt.Errorf("failed to check task schedule: %w", err)
 	}
 	return count > 0, nil
+}
+
+// GetFromDate retrieves all scheduled tasks from a specific date onwards
+func (r *scheduledTaskRepository) GetFromDate(date time.Time) ([]*models.ScheduledTask, error) {
+	dateStr := date.Format("2006-01-02")
+	rows, err := r.db.Query(`
+		SELECT id, task_id, scheduled_date, created_at
+		FROM scheduled_tasks
+		WHERE scheduled_date >= ?
+		ORDER BY scheduled_date, id
+	`, dateStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get scheduled tasks from date: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []*models.ScheduledTask
+	for rows.Next() {
+		st := &models.ScheduledTask{}
+		if err := rows.Scan(&st.ID, &st.TaskID, &st.ScheduledDate, &st.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan scheduled task: %w", err)
+		}
+		tasks = append(tasks, st)
+	}
+
+	return tasks, rows.Err()
 }

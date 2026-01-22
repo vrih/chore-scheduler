@@ -574,12 +574,14 @@ func (c *CLI) handleCompleteMultiple(ids []int64) error {
 			continue
 		}
 
-		// Clear current schedule and reschedule
-		if err := c.scheduler.ClearSchedule(task.ID); err != nil {
+		// Clear current schedule and reschedule other tasks if this was an early completion
+		_, _, err = c.scheduler.CompleteTaskAndReschedule(task.ID)
+		if err != nil {
 			failures = append(failures, fmt.Sprintf("#%d (%s): failed to clear schedule", id, task.Name))
 			continue
 		}
 
+		// Schedule the next occurrence of this task
 		if err := c.scheduler.ScheduleTask(task); err != nil {
 			failures = append(failures, fmt.Sprintf("#%d (%s): failed to reschedule", id, task.Name))
 			continue

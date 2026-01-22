@@ -631,3 +631,50 @@ func TestTaskRepository_GetAllRooms_Empty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, rooms, 0)
 }
+
+func TestScheduledTaskRepository_GetFromDate(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	taskRepo := NewTaskRepository(database)
+	schedRepo := NewScheduledTaskRepository(database)
+
+	// Create tasks
+	task1 := &models.Task{Name: "Task 1", Room: "Kitchen", Effort: 2, FrequencyDays: 7}
+	task2 := &models.Task{Name: "Task 2", Room: "Bathroom", Effort: 3, FrequencyDays: 7}
+	task3 := &models.Task{Name: "Task 3", Room: "Kitchen", Effort: 1, FrequencyDays: 7}
+	require.NoError(t, taskRepo.Create(task1))
+	require.NoError(t, taskRepo.Create(task2))
+	require.NoError(t, taskRepo.Create(task3))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	tomorrow := today.AddDate(0, 0, 1)
+	inThreeDays := today.AddDate(0, 0, 3)
+
+	// Schedule tasks on different days
+	require.NoError(t, schedRepo.Create(models.NewScheduledTask(task1.ID, today)))
+	require.NoError(t, schedRepo.Create(models.NewScheduledTask(task2.ID, tomorrow)))
+	require.NoError(t, schedRepo.Create(models.NewScheduledTask(task3.ID, inThreeDays)))
+
+	// Get from today - should return all 3
+	tasks, err := schedRepo.GetFromDate(today)
+	require.NoError(t, err)
+	assert.Len(t, tasks, 3)
+
+	// Get from tomorrow - should return 2 (tomorrow and in 3 days)
+	tasks, err = schedRepo.GetFromDate(tomorrow)
+	require.NoError(t, err)
+	assert.Len(t, tasks, 2)
+
+	// Get from 3 days out - should return 1
+	tasks, err = schedRepo.GetFromDate(inThreeDays)
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+	assert.Equal(t, task3.ID, tasks[0].TaskID)
+
+	// Get from far future - should return empty
+	tasks, err = schedRepo.GetFromDate(today.AddDate(0, 0, 10))
+	require.NoError(t, err)
+	assert.Len(t, tasks, 0)
+}
