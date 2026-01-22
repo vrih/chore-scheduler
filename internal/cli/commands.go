@@ -146,16 +146,22 @@ func (c *CLI) buildUpcomingCommand() *cobra.Command {
 // buildCompleteCommand creates the complete subcommand
 func (c *CLI) buildCompleteCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "complete <id>",
-		Short: "Mark a task as complete",
-		Long:  `Mark a task as completed. The next occurrence will be scheduled automatically.`,
-		Args:  cobra.ExactArgs(1),
+		Use:   "complete <id> [id...]",
+		Short: "Mark one or more tasks as complete",
+		Long:  `Mark one or more tasks as completed. The next occurrence will be scheduled automatically.`,
+		Example: `  chore-scheduler complete 1
+  chore-scheduler complete 1 2 3`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := strconv.ParseInt(args[0], 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid task ID: %s", args[0])
+			ids := make([]int64, 0, len(args))
+			for _, arg := range args {
+				id, err := strconv.ParseInt(arg, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid task ID: %s", arg)
+				}
+				ids = append(ids, id)
 			}
-			return c.handleComplete(id)
+			return c.handleCompleteMultiple(ids)
 		},
 	}
 }
@@ -534,6 +540,72 @@ func (c *CLI) handleComplete(id int64) error {
 	fmt.Printf("Completed: %s\n", task.Name)
 	if len(scheduled) > 0 {
 		fmt.Printf("Next scheduled: %s\n", scheduled[0].ScheduledDate.Format("Mon, Jan 2 2006"))
+	}
+
+	return nil
+}
+
+func (c *CLI) handleCompleteMultiple(ids []int64) error {
+	var completed []string
+	var failures []string
+
+	for _, id := range ids {
+		task, err := c.taskRepo.Get(id)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("#%d: task not found", id))
+			continue
+		}
+
+		// Record completion
+		completion := models.NewCompletion(task.ID)
+		if err := c.completionRepo.Create(completion); err != nil {
+			failures = append(failures, fmt.Sprintf("#%d (%s): failed to record completion", id, task.Name))
+			continue
+		}
+
+		// Update task
+		now := time.Now()
+		task.LastCompleted = &now
+		nextScheduled := task.CalculateNextScheduled()
+		task.NextScheduled = &nextScheduled
+
+		if err := c.taskRepo.Update(task); err != nil {
+			failures = append(failures, fmt.Sprintf("#%d (%s): failed to update task", id, task.Name))
+			continue
+		}
+
+		// Clear current schedule and reschedule
+		if err := c.scheduler.ClearSchedule(task.ID); err != nil {
+			failures = append(failures, fmt.Sprintf("#%d (%s): failed to clear schedule", id, task.Name))
+			continue
+		}
+
+		if err := c.scheduler.ScheduleTask(task); err != nil {
+			failures = append(failures, fmt.Sprintf("#%d (%s): failed to reschedule", id, task.Name))
+			continue
+		}
+
+		completed = append(completed, fmt.Sprintf("#%d: %s", task.ID, task.Name))
+	}
+
+	// Print results
+	if len(completed) > 0 {
+		fmt.Printf("Completed %d task(s):\n", len(completed))
+		for _, c := range completed {
+			fmt.Printf("  %s\n", c)
+		}
+	}
+
+	if len(failures) > 0 {
+		fmt.Printf("\nFailed to complete %d task(s):\n", len(failures))
+		for _, f := range failures {
+			fmt.Printf("  %s\n", f)
+		}
+	}
+
+	// Return error only if all tasks failed
+	if len(completed) == 0 && len(failures) > 0 {
+		return fmt.Errorf("failed to complete any tasks")
 	}
 
 	return nil
