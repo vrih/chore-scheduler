@@ -63,6 +63,7 @@ It intelligently distributes tasks across days based on effort levels and freque
 	rootCmd.AddCommand(c.buildConfigCommand())
 	rootCmd.AddCommand(c.buildRescheduleCommand())
 	rootCmd.AddCommand(c.buildRoomsCommand())
+	rootCmd.AddCommand(c.buildEmailCommand())
 
 	return rootCmd
 }
@@ -104,6 +105,11 @@ func (c *CLI) initializeDatabase(cmd *cobra.Command, args []string) error {
 
 	// Create scheduler
 	c.scheduler = scheduler.NewScheduler(c.taskRepo, c.configRepo, c.scheduledRepo)
+
+	// Refresh schedule: clean up stale past entries and reschedule overdue tasks
+	if err := c.scheduler.RefreshSchedule(); err != nil {
+		return fmt.Errorf("failed to refresh schedule: %w", err)
+	}
 
 	return nil
 }

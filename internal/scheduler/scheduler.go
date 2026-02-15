@@ -92,6 +92,20 @@ func (s *Scheduler) Schedule() error {
 	return nil
 }
 
+// RefreshSchedule cleans up stale past entries and reschedules any tasks
+// that now lack a future entry. This is idempotent and safe to call on every
+// CLI invocation.
+func (s *Scheduler) RefreshSchedule() error {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	if err := s.scheduledRepo.ClearBefore(today); err != nil {
+		return fmt.Errorf("failed to clear stale schedule entries: %w", err)
+	}
+
+	return s.Schedule()
+}
+
 // ScheduleTask schedules a single task to the next available day
 func (s *Scheduler) ScheduleTask(task *models.Task) error {
 	maxEffort, err := s.configRepo.GetMaxDailyEffort()

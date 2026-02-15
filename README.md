@@ -165,6 +165,36 @@ chore-scheduler postpone <id>
 chore-scheduler postpone <id> --days 2
 ```
 
+### Email Digest
+
+Generate a daily email with today's scheduled tasks. The command outputs a complete RFC 2822 email (headers + HTML body) to stdout, designed to be piped to `sendmail`.
+
+#### Setup
+```bash
+# Set recipient (required)
+chore-scheduler config set email_to user@example.com
+
+# Set sender (optional, defaults to "Chore Scheduler <chore-scheduler@localhost>")
+chore-scheduler config set email_from "Chore Scheduler <chores@nas.local>"
+```
+
+#### Send via cron
+```bash
+# Add to crontab (e.g. daily at 6:45am)
+45 6 * * * chore-scheduler email | sendmail -t
+```
+
+#### Preview
+```bash
+# Output to terminal
+chore-scheduler email
+
+# Save as .eml file to check rendering
+chore-scheduler email > digest.eml
+```
+
+The email includes a table of today's tasks with name, room, effort level, and an overdue badge for tasks past their due date.
+
 ### Configuration
 
 #### View Configuration
@@ -347,7 +377,7 @@ chore-scheduler config set max-effort 15
 - Completion streaks
 - Task dependencies
 - Recurring patterns (e.g., "every Monday")
-- Mobile notifications
+- Mobile push notifications
 
 ## Contributing
 

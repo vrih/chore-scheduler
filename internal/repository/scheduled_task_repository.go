@@ -16,6 +16,7 @@ type ScheduledTaskRepository interface {
 	GetByTask(taskID int64) ([]*models.ScheduledTask, error)
 	GetFromDate(date time.Time) ([]*models.ScheduledTask, error)
 	ClearForTask(taskID int64) error
+	ClearBefore(date time.Time) error
 	GetDailyEffort(date time.Time) (int, error)
 	ClearAll() error
 	IsTaskScheduledOnDate(taskID int64, date time.Time) (bool, error)
@@ -121,6 +122,16 @@ func (r *scheduledTaskRepository) ClearForTask(taskID int64) error {
 	_, err := r.db.Exec("DELETE FROM scheduled_tasks WHERE task_id = ?", taskID)
 	if err != nil {
 		return fmt.Errorf("failed to clear scheduled tasks: %w", err)
+	}
+	return nil
+}
+
+// ClearBefore removes all scheduled entries with a date before the given date
+func (r *scheduledTaskRepository) ClearBefore(date time.Time) error {
+	dateStr := date.Format("2006-01-02")
+	_, err := r.db.Exec("DELETE FROM scheduled_tasks WHERE scheduled_date < ?", dateStr)
+	if err != nil {
+		return fmt.Errorf("failed to clear scheduled tasks before %s: %w", dateStr, err)
 	}
 	return nil
 }

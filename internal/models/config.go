@@ -13,11 +13,14 @@ type Config struct {
 // Configuration keys
 const (
 	ConfigKeyMaxDailyEffort = "max_daily_effort"
+	ConfigKeyEmailTo        = "email_to"
+	ConfigKeyEmailFrom      = "email_from"
 )
 
 // Default configuration values
 const (
 	DefaultMaxDailyEffort = 10
+	DefaultEmailFrom      = "Chore Scheduler <chore-scheduler@localhost>"
 )
 
 // AsInt returns the config value as an integer

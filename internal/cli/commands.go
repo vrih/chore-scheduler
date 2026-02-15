@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 
 	"github.com/user/chore-scheduler/internal/models"
+	"github.com/user/chore-scheduler/internal/repository"
 )
 
 // buildAddCommand creates the add subcommand
@@ -825,6 +827,124 @@ func (c *CLI) handleRoomTasks(room string) error {
 
 	table.Render()
 	return nil
+}
+
+type emailTask struct {
+	Name    string
+	Room    string
+	Effort  int
+	Overdue bool
+}
+
+// buildEmailCommand creates the email subcommand
+func (c *CLI) buildEmailCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "email",
+		Short: "Output a daily task digest email",
+		Long: `Generate an RFC 2822 email with today's scheduled tasks as an HTML body.
+Pipe to sendmail for delivery. Requires email_to config to be set.`,
+		Example: `  chore-scheduler config set email_to user@example.com
+  chore-scheduler email | sendmail -t`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return c.handleEmail()
+		},
+	}
+}
+
+func (c *CLI) handleEmail() error {
+	// Get email_to (required)
+	emailTo, err := c.configRepo.Get(models.ConfigKeyEmailTo)
+	if err != nil {
+		if err == repository.ErrConfigNotFound {
+			return fmt.Errorf("email_to not configured; set it with: chore-scheduler config set email_to <address>")
+		}
+		return fmt.Errorf("failed to get email_to config: %w", err)
+	}
+
+	// Get email_from (optional, has default)
+	emailFrom, err := c.configRepo.Get(models.ConfigKeyEmailFrom)
+	if err != nil {
+		emailFrom = models.DefaultEmailFrom
+	}
+
+	// Get today's scheduled tasks
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	scheduled, err := c.scheduledRepo.GetByDate(today)
+	if err != nil {
+		return fmt.Errorf("failed to get scheduled tasks: %w", err)
+	}
+
+	var tasks []emailTask
+	totalEffort := 0
+	for _, st := range scheduled {
+		task, err := c.taskRepo.Get(st.TaskID)
+		if err != nil {
+			continue
+		}
+		tasks = append(tasks, emailTask{
+			Name:    task.Name,
+			Room:    task.Room,
+			Effort:  task.Effort,
+			Overdue: task.IsOverdue(),
+		})
+		totalEffort += task.Effort
+	}
+
+	// Subject
+	dateStr := today.Format("Mon, Jan 2")
+	subject := fmt.Sprintf("Chore Scheduler: %d tasks for today (%s)", len(tasks), dateStr)
+
+	// Output RFC 2822 plain text email
+	fmt.Printf("From: %s\r\n", emailFrom)
+	fmt.Printf("To: %s\r\n", emailTo)
+	fmt.Printf("Subject: %s\r\n", subject)
+	fmt.Printf("MIME-Version: 1.0\r\n")
+	fmt.Printf("Content-Type: text/plain; charset=UTF-8\r\n")
+	fmt.Printf("\r\n")
+	fmt.Print(buildEmailText(tasks, totalEffort, today))
+
+	return nil
+}
+
+func effortLabel(effort int) string {
+	switch effort {
+	case 1:
+		return "Quick"
+	case 2:
+		return "Medium"
+	case 3:
+		return "Long"
+	default:
+		return strconv.Itoa(effort)
+	}
+}
+
+func buildEmailText(tasks []emailTask, totalEffort int, today time.Time) string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("Tasks for %s\n", today.Format("Monday, January 2")))
+	b.WriteString(strings.Repeat("=", 40) + "\n\n")
+
+	if len(tasks) == 0 {
+		b.WriteString("No tasks scheduled for today.\n")
+	} else {
+		for _, t := range tasks {
+			status := ""
+			if t.Overdue {
+				status = " [OVERDUE]"
+			}
+			room := ""
+			if t.Room != "" {
+				room = fmt.Sprintf(" (%s)", t.Room)
+			}
+			b.WriteString(fmt.Sprintf("- %s%s - %s%s\n", t.Name, room, effortLabel(t.Effort), status))
+		}
+		b.WriteString(fmt.Sprintf("\nTotal effort: %d\n", totalEffort))
+	}
+
+	return b.String()
 }
 
 // isWorseThan returns true if status a is worse than status b

@@ -632,6 +632,58 @@ func TestTaskRepository_GetAllRooms_Empty(t *testing.T) {
 	assert.Len(t, rooms, 0)
 }
 
+func TestScheduledTaskRepository_ClearBefore(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	taskRepo := NewTaskRepository(database)
+	schedRepo := NewScheduledTaskRepository(database)
+
+	// Create tasks
+	task1 := &models.Task{Name: "Task 1", Room: "Kitchen", Effort: 1, FrequencyDays: 7}
+	task2 := &models.Task{Name: "Task 2", Room: "Bathroom", Effort: 2, FrequencyDays: 7}
+	task3 := &models.Task{Name: "Task 3", Room: "Kitchen", Effort: 1, FrequencyDays: 7}
+	task4 := &models.Task{Name: "Task 4", Room: "Bathroom", Effort: 2, FrequencyDays: 7}
+	require.NoError(t, taskRepo.Create(task1))
+	require.NoError(t, taskRepo.Create(task2))
+	require.NoError(t, taskRepo.Create(task3))
+	require.NoError(t, taskRepo.Create(task4))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	twoDaysAgo := today.AddDate(0, 0, -2)
+	yesterday := today.AddDate(0, 0, -1)
+	tomorrow := today.AddDate(0, 0, 1)
+
+	// Insert entries for 2 days ago, yesterday, today, tomorrow
+	require.NoError(t, schedRepo.Create(models.NewScheduledTask(task1.ID, twoDaysAgo)))
+	require.NoError(t, schedRepo.Create(models.NewScheduledTask(task2.ID, yesterday)))
+	require.NoError(t, schedRepo.Create(models.NewScheduledTask(task3.ID, today)))
+	require.NoError(t, schedRepo.Create(models.NewScheduledTask(task4.ID, tomorrow)))
+
+	// Clear before today
+	err := schedRepo.ClearBefore(today)
+	require.NoError(t, err)
+
+	// Past entries should be deleted
+	entries1, err := schedRepo.GetByTask(task1.ID)
+	require.NoError(t, err)
+	assert.Len(t, entries1, 0, "2 days ago entry should be deleted")
+
+	entries2, err := schedRepo.GetByTask(task2.ID)
+	require.NoError(t, err)
+	assert.Len(t, entries2, 0, "yesterday entry should be deleted")
+
+	// Today and tomorrow entries should be preserved
+	entries3, err := schedRepo.GetByTask(task3.ID)
+	require.NoError(t, err)
+	assert.Len(t, entries3, 1, "today entry should be preserved")
+
+	entries4, err := schedRepo.GetByTask(task4.ID)
+	require.NoError(t, err)
+	assert.Len(t, entries4, 1, "tomorrow entry should be preserved")
+}
+
 func TestScheduledTaskRepository_GetFromDate(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()

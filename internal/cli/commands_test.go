@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -232,4 +233,122 @@ func TestBuildCompleteCommand_MixedValidInvalidFormat(t *testing.T) {
 	err := cmd.Execute()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task ID: notanumber")
+}
+
+// scheduleTaskForToday creates a task and schedules it for today
+func scheduleTaskForToday(t *testing.T, cli *CLI, name, room string, effort int) *models.Task {
+	task := &models.Task{
+		Name:          name,
+		Room:          room,
+		Effort:        effort,
+		FrequencyDays: 7,
+	}
+	require.NoError(t, cli.taskRepo.Create(task))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	st := models.NewScheduledTask(task.ID, today)
+	require.NoError(t, cli.scheduledRepo.Create(st))
+
+	// Set NextScheduled to today so it's not overdue
+	task.NextScheduled = &today
+	require.NoError(t, cli.taskRepo.Update(task))
+
+	return task
+}
+
+func TestHandleEmail_NoEmailTo(t *testing.T) {
+	cli := setupTestCLI(t)
+
+	err := cli.handleEmail()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "email_to not configured")
+}
+
+func TestHandleEmail_NoTasks(t *testing.T) {
+	cli := setupTestCLI(t)
+	require.NoError(t, cli.configRepo.Set(models.ConfigKeyEmailTo, "test@example.com"))
+
+	output := captureOutput(func() {
+		err := cli.handleEmail()
+		require.NoError(t, err)
+	})
+
+	assert.Contains(t, output, "From:")
+	assert.Contains(t, output, "To: test@example.com")
+	assert.Contains(t, output, "Subject: Chore Scheduler: 0 tasks for today")
+	assert.Contains(t, output, "MIME-Version: 1.0")
+	assert.Contains(t, output, "Content-Type: text/plain")
+	assert.Contains(t, output, "No tasks scheduled for today")
+}
+
+func TestHandleEmail_WithTasks(t *testing.T) {
+	cli := setupTestCLI(t)
+	require.NoError(t, cli.configRepo.Set(models.ConfigKeyEmailTo, "test@example.com"))
+
+	scheduleTaskForToday(t, cli, "Vacuum Floor", "Living Room", 2)
+	scheduleTaskForToday(t, cli, "Wipe Counters", "Kitchen", 1)
+
+	output := captureOutput(func() {
+		err := cli.handleEmail()
+		require.NoError(t, err)
+	})
+
+	// Check headers
+	assert.Contains(t, output, "From:")
+	assert.Contains(t, output, "To: test@example.com")
+	assert.Contains(t, output, "Subject: Chore Scheduler: 2 tasks for today")
+	assert.Contains(t, output, "MIME-Version: 1.0")
+	assert.Contains(t, output, "Content-Type: text/plain")
+
+	// Check body contains task info
+	assert.Contains(t, output, "Vacuum Floor")
+	assert.Contains(t, output, "Living Room")
+	assert.Contains(t, output, "Wipe Counters")
+	assert.Contains(t, output, "Kitchen")
+	assert.Contains(t, output, "Total effort: 3")
+}
+
+func TestHandleEmail_OverdueTask(t *testing.T) {
+	cli := setupTestCLI(t)
+	require.NoError(t, cli.configRepo.Set(models.ConfigKeyEmailTo, "test@example.com"))
+
+	// Create task with NextScheduled in the past so IsOverdue() returns true
+	task := &models.Task{
+		Name:          "Overdue Task",
+		Room:          "Bathroom",
+		Effort:        3,
+		FrequencyDays: 7,
+	}
+	require.NoError(t, cli.taskRepo.Create(task))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	pastDate := today.AddDate(0, 0, -3)
+	task.NextScheduled = &pastDate
+	require.NoError(t, cli.taskRepo.Update(task))
+
+	st := models.NewScheduledTask(task.ID, today)
+	require.NoError(t, cli.scheduledRepo.Create(st))
+
+	output := captureOutput(func() {
+		err := cli.handleEmail()
+		require.NoError(t, err)
+	})
+
+	assert.Contains(t, output, "OVERDUE")
+	assert.Contains(t, output, "Overdue Task")
+}
+
+func TestHandleEmail_CustomFrom(t *testing.T) {
+	cli := setupTestCLI(t)
+	require.NoError(t, cli.configRepo.Set(models.ConfigKeyEmailTo, "test@example.com"))
+	require.NoError(t, cli.configRepo.Set(models.ConfigKeyEmailFrom, "Custom Sender <custom@example.com>"))
+
+	output := captureOutput(func() {
+		err := cli.handleEmail()
+		require.NoError(t, err)
+	})
+
+	assert.Contains(t, output, "From: Custom Sender <custom@example.com>")
 }

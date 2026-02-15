@@ -663,3 +663,180 @@ func TestScheduler_EarlyCompletion_Integration(t *testing.T) {
 		assert.Len(t, sched, 0, "completed task should not be scheduled")
 	}
 }
+
+func TestScheduler_RefreshSchedule_ReschedulesOverdueTask(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	taskRepo := repository.NewTaskRepository(database)
+	configRepo := repository.NewConfigRepository(database)
+	scheduledRepo := repository.NewScheduledTaskRepository(database)
+
+	require.NoError(t, configRepo.SetMaxDailyEffort(10))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	yesterday := today.AddDate(0, 0, -1)
+
+	// Create task with a stale past scheduled entry
+	task := &models.Task{
+		Name:          "Overdue Chore",
+		Room:          "Kitchen",
+		Effort:        2,
+		FrequencyDays: 7,
+		NextScheduled: &yesterday,
+	}
+	require.NoError(t, taskRepo.Create(task))
+
+	// Simulate the old scheduled entry from yesterday
+	require.NoError(t, scheduledRepo.Create(models.NewScheduledTask(task.ID, yesterday)))
+
+	s := NewScheduler(taskRepo, configRepo, scheduledRepo)
+
+	// RefreshSchedule should clear the stale entry and reschedule
+	err := s.RefreshSchedule()
+	require.NoError(t, err)
+
+	// The task should now be scheduled for today (earliest available)
+	entries, err := scheduledRepo.GetByTask(task.ID)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+
+	schedDate := time.Date(entries[0].ScheduledDate.Year(), entries[0].ScheduledDate.Month(), entries[0].ScheduledDate.Day(), 0, 0, 0, 0, time.UTC)
+	assert.Equal(t, today, schedDate, "overdue task should be rescheduled to today")
+}
+
+func TestScheduler_RefreshSchedule_RespectsEffortLimits(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	taskRepo := repository.NewTaskRepository(database)
+	configRepo := repository.NewConfigRepository(database)
+	scheduledRepo := repository.NewScheduledTaskRepository(database)
+
+	// Low effort limit so tasks must spread across days
+	require.NoError(t, configRepo.SetMaxDailyEffort(3))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	yesterday := today.AddDate(0, 0, -1)
+	twoDaysAgo := today.AddDate(0, 0, -2)
+
+	// Create 3 overdue tasks with effort 2 each; max_daily_effort=3 means only 1 per day
+	tasks := []*models.Task{
+		{Name: "Task A", Room: "Kitchen", Effort: 2, FrequencyDays: 7, NextScheduled: &twoDaysAgo},
+		{Name: "Task B", Room: "Bathroom", Effort: 2, FrequencyDays: 7, NextScheduled: &yesterday},
+		{Name: "Task C", Room: "Kitchen", Effort: 2, FrequencyDays: 7, NextScheduled: &yesterday},
+	}
+	for _, task := range tasks {
+		require.NoError(t, taskRepo.Create(task))
+		require.NoError(t, scheduledRepo.Create(models.NewScheduledTask(task.ID, *task.NextScheduled)))
+	}
+
+	s := NewScheduler(taskRepo, configRepo, scheduledRepo)
+	err := s.RefreshSchedule()
+	require.NoError(t, err)
+
+	// All tasks should be scheduled
+	for _, task := range tasks {
+		entries, err := scheduledRepo.GetByTask(task.ID)
+		require.NoError(t, err)
+		assert.Len(t, entries, 1, "task %d should be scheduled", task.ID)
+	}
+
+	// No day should exceed max effort
+	for i := 0; i < 7; i++ {
+		date := today.AddDate(0, 0, i)
+		effort, err := scheduledRepo.GetDailyEffort(date)
+		require.NoError(t, err)
+		assert.LessOrEqual(t, effort, 3, "day %d effort should not exceed max", i)
+	}
+}
+
+func TestScheduler_RefreshSchedule_NoopForFutureTask(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	taskRepo := repository.NewTaskRepository(database)
+	configRepo := repository.NewConfigRepository(database)
+	scheduledRepo := repository.NewScheduledTaskRepository(database)
+
+	require.NoError(t, configRepo.SetMaxDailyEffort(10))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	inThreeDays := today.AddDate(0, 0, 3)
+
+	// Create task scheduled for the future
+	task := &models.Task{
+		Name:          "Future Chore",
+		Room:          "Bathroom",
+		Effort:        2,
+		FrequencyDays: 7,
+		NextScheduled: &inThreeDays,
+	}
+	require.NoError(t, taskRepo.Create(task))
+	require.NoError(t, scheduledRepo.Create(models.NewScheduledTask(task.ID, inThreeDays)))
+
+	s := NewScheduler(taskRepo, configRepo, scheduledRepo)
+	err := s.RefreshSchedule()
+	require.NoError(t, err)
+
+	// Task should still be scheduled on the same future date
+	entries, err := scheduledRepo.GetByTask(task.ID)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+
+	schedDate := time.Date(entries[0].ScheduledDate.Year(), entries[0].ScheduledDate.Month(), entries[0].ScheduledDate.Day(), 0, 0, 0, 0, time.UTC)
+	assert.Equal(t, inThreeDays, schedDate, "future task should remain on its original date")
+}
+
+func TestScheduler_RefreshSchedule_OverdueGoesToEarliestAvailable(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	taskRepo := repository.NewTaskRepository(database)
+	configRepo := repository.NewConfigRepository(database)
+	scheduledRepo := repository.NewScheduledTaskRepository(database)
+
+	require.NoError(t, configRepo.SetMaxDailyEffort(3))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	yesterday := today.AddDate(0, 0, -1)
+	tomorrow := today.AddDate(0, 0, 1)
+
+	// Fill today's capacity with an already-scheduled task
+	existingTask := &models.Task{
+		Name:          "Existing Today",
+		Room:          "Kitchen",
+		Effort:        3,
+		FrequencyDays: 7,
+		NextScheduled: &today,
+	}
+	require.NoError(t, taskRepo.Create(existingTask))
+	require.NoError(t, scheduledRepo.Create(models.NewScheduledTask(existingTask.ID, today)))
+
+	// Create overdue task with stale entry
+	overdueTask := &models.Task{
+		Name:          "Overdue",
+		Room:          "Bathroom",
+		Effort:        2,
+		FrequencyDays: 7,
+		NextScheduled: &yesterday,
+	}
+	require.NoError(t, taskRepo.Create(overdueTask))
+	require.NoError(t, scheduledRepo.Create(models.NewScheduledTask(overdueTask.ID, yesterday)))
+
+	s := NewScheduler(taskRepo, configRepo, scheduledRepo)
+	err := s.RefreshSchedule()
+	require.NoError(t, err)
+
+	// Overdue task should be pushed to tomorrow since today is full
+	entries, err := scheduledRepo.GetByTask(overdueTask.ID)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+
+	schedDate := time.Date(entries[0].ScheduledDate.Year(), entries[0].ScheduledDate.Month(), entries[0].ScheduledDate.Day(), 0, 0, 0, 0, time.UTC)
+	assert.Equal(t, tomorrow, schedDate, "overdue task should go to tomorrow when today is full")
+}
