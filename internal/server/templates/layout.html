@@ -1,0 +1,41 @@
+{{define "layout.html"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Chores">
+  <title>Chore Scheduler</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</head>
+<body>
+  <main id="main" hx-get="/today" hx-trigger="load" hx-target="#main" hx-swap="innerHTML"></main>
+  <nav class="tab-bar">
+    <a href="#" class="tab" hx-get="/today" hx-target="#main" hx-push-url="false">
+      <span class="tab-icon">📋</span><span class="tab-label">Today</span>
+    </a>
+    <a href="#" class="tab" hx-get="/upcoming" hx-target="#main" hx-push-url="false">
+      <span class="tab-icon">📅</span><span class="tab-label">Upcoming</span>
+    </a>
+    <a href="#" class="tab" hx-get="/tasks" hx-target="#main" hx-push-url="false">
+      <span class="tab-icon">✅</span><span class="tab-label">Tasks</span>
+    </a>
+    <a href="#" class="tab" hx-get="/rooms" hx-target="#main" hx-push-url="false">
+      <span class="tab-icon">🏠</span><span class="tab-label">Rooms</span>
+    </a>
+    <a href="#" class="tab" hx-get="/config" hx-target="#main" hx-push-url="false">
+      <span class="tab-icon">⚙️</span><span class="tab-label">Settings</span>
+    </a>
+  </nav>
+</body>
+</html>{{end}}

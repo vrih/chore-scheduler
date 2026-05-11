@@ -1,0 +1,48 @@
+{{define "today.html"}}
+<div class="page">
+  <header class="page-header">
+    <h1>Today</h1>
+    <span class="date-label">{{.Date.Format "Mon, 2 Jan"}}</span>
+  </header>
+
+  {{if .Tasks}}
+  <div class="effort-bar">
+    <span class="effort-label">Total effort: <strong>{{.TotalEffort}}</strong></span>
+  </div>
+  <ul class="task-cards">
+    {{range .Tasks}}
+    <li class="task-card {{if .IsOverdue}}task-overdue{{end}}" id="task-{{.ID}}">
+      <div class="task-card-body">
+        <div class="task-info">
+          <span class="task-name">{{.Name}}</span>
+          <span class="task-meta">{{.Room}} &middot; {{effortLabel .Effort}}</span>
+          {{if .IsOverdue}}<span class="badge badge-overdue">Overdue</span>{{end}}
+        </div>
+        <div class="task-actions">
+          <button class="btn btn-complete"
+                  hx-post="/tasks/{{.ID}}/complete"
+                  hx-target="#main"
+                  hx-swap="innerHTML"
+                  title="Complete">&#10003;</button>
+          <button class="btn btn-secondary btn-sm"
+                  hx-post="/tasks/{{.ID}}/postpone"
+                  hx-target="#main"
+                  hx-swap="innerHTML"
+                  hx-confirm="Postpone to tomorrow?"
+                  title="Postpone">&#8594;1d</button>
+          <a class="btn btn-secondary btn-sm"
+             hx-get="/tasks/{{.ID}}/edit"
+             hx-target="#main"
+             hx-swap="innerHTML">Edit</a>
+        </div>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <div class="empty-state">
+    <p>Nothing scheduled for today 🎉</p>
+  </div>
+  {{end}}
+</div>
+{{end}}

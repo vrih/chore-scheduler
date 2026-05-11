@@ -1,0 +1,52 @@
+{{define "task_form.html"}}
+<div class="page">
+  <header class="page-header">
+    <a class="btn btn-secondary btn-sm" hx-get="/tasks" hx-target="#main" hx-swap="innerHTML">&larr; Back</a>
+    <h1>{{if .IsNew}}Add Task{{else}}Edit Task{{end}}</h1>
+  </header>
+
+  {{if .Error}}<div class="flash flash-error">{{.Error}}</div>{{end}}
+
+  <form {{if .IsNew}}hx-post="/tasks"{{else}}hx-post="/tasks/{{.Task.ID}}"{{end}}
+        hx-target="#main" hx-swap="innerHTML" class="task-form">
+
+    <div class="form-group">
+      <label for="name">Task name</label>
+      <input id="name" name="name" type="text" class="form-input"
+             value="{{.Task.Name}}" placeholder="e.g. Vacuum living room" required autofocus>
+    </div>
+
+    <div class="form-group">
+      <label for="room">Room</label>
+      <input id="room" name="room" type="text" class="form-input"
+             value="{{.Task.Room}}" placeholder="e.g. Kitchen" required>
+    </div>
+
+    <div class="form-group">
+      <label>Effort</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="effort" value="1" {{if eq .Task.Effort 1}}checked{{end}}> Quick (5–15 min)
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="effort" value="2" {{if eq .Task.Effort 2}}checked{{end}}> Medium (15–45 min)
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="effort" value="3" {{if eq .Task.Effort 3}}checked{{end}}> Long (45+ min)
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="frequency">Repeat every (days)</label>
+      <input id="frequency" name="frequency" type="number" class="form-input"
+             value="{{.Task.FrequencyDays}}" min="1" max="365" required>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{if .IsNew}}Add Task{{else}}Save Changes{{end}}</button>
+      <a class="btn btn-secondary" hx-get="/tasks" hx-target="#main" hx-swap="innerHTML">Cancel</a>
+    </div>
+  </form>
+</div>
+{{end}}

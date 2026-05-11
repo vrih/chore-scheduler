@@ -1,0 +1,41 @@
+{{define "room_detail.html"}}
+<div class="page">
+  <header class="page-header">
+    <a class="btn btn-secondary btn-sm" hx-get="/rooms" hx-target="#main" hx-swap="innerHTML">&larr; Rooms</a>
+    <h1>{{.Name}}</h1>
+  </header>
+
+  {{if .Tasks}}
+  <ul class="task-list">
+    {{range .Tasks}}
+    <li class="task-list-item">
+      <div class="task-list-main">
+        <span class="task-name">{{.Name}}</span>
+        <span class="task-meta">{{effortLabel .Effort}} &middot; every {{.FrequencyDays}}d</span>
+        <span class="cleanliness-badge cleanliness-{{.CleanlinessStatus}}">{{.CleanlinessStatus}}</span>
+      </div>
+      <div class="task-list-due">
+        {{if .LastCompleted}}
+          Last: {{.LastCompleted.Format "2 Jan"}}
+        {{else}}
+          Never done
+        {{end}}
+      </div>
+      <div class="task-list-actions">
+        <button class="btn btn-complete btn-sm"
+                hx-post="/tasks/{{.ID}}/complete"
+                hx-target="#main"
+                hx-swap="innerHTML">&#10003;</button>
+        <a class="btn btn-secondary btn-xs"
+           hx-get="/tasks/{{.ID}}/edit"
+           hx-target="#main"
+           hx-swap="innerHTML">Edit</a>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <div class="empty-state"><p>No tasks in this room.</p></div>
+  {{end}}
+</div>
+{{end}}

@@ -1,0 +1,52 @@
+{{define "tasks_list.html"}}
+<div class="page">
+  <header class="page-header">
+    <h1>Tasks</h1>
+    <div class="header-actions">
+      <label class="toggle-label">
+        <input type="checkbox" hx-get="/tasks?overdue=1" hx-target="#main" hx-swap="innerHTML"
+               {{if .OverdueOnly}}checked{{end}}
+               hx-trigger="change">
+        Overdue only
+      </label>
+      <a class="btn btn-primary btn-sm" hx-get="/tasks/new" hx-target="#main" hx-swap="innerHTML">+ Add</a>
+    </div>
+  </header>
+
+  {{if .Flash}}<div class="flash flash-success">{{.Flash}}</div>{{end}}
+
+  {{if .Tasks}}
+  <ul class="task-list">
+    {{range .Tasks}}
+    <li class="task-list-item" id="task-row-{{.ID}}">
+      <div class="task-list-main">
+        <span class="task-name">{{.Name}}</span>
+        <span class="task-meta">{{.Room}} &middot; {{effortLabel .Effort}} &middot; every {{.FrequencyDays}}d</span>
+        <span class="cleanliness-badge cleanliness-{{.CleanlinessStatus}}">{{.CleanlinessStatus}}</span>
+      </div>
+      <div class="task-list-due">
+        {{if .NextScheduled}}
+          <span class="{{if .IsOverdue}}text-overdue{{end}}">
+            {{if .IsOverdue}}Overdue{{else if .IsDueToday}}Today{{else}}{{.NextScheduled.Format "2 Jan"}}{{end}}
+          </span>
+        {{else}}&mdash;{{end}}
+      </div>
+      <div class="task-list-actions">
+        <a class="btn btn-secondary btn-xs" hx-get="/tasks/{{.ID}}/edit" hx-target="#main" hx-swap="innerHTML">Edit</a>
+        <button class="btn btn-danger btn-xs"
+                hx-post="/tasks/{{.ID}}/delete"
+                hx-target="#task-row-{{.ID}}"
+                hx-swap="outerHTML"
+                hx-confirm="Delete {{.Name}}?">Del</button>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <div class="empty-state">
+    <p>No tasks yet.</p>
+    <a class="btn btn-primary" hx-get="/tasks/new" hx-target="#main" hx-swap="innerHTML">Add your first task</a>
+  </div>
+  {{end}}
+</div>
+{{end}}

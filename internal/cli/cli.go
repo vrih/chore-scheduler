@@ -64,6 +64,7 @@ It intelligently distributes tasks across days based on effort levels and freque
 	rootCmd.AddCommand(c.buildRescheduleCommand())
 	rootCmd.AddCommand(c.buildRoomsCommand())
 	rootCmd.AddCommand(c.buildEmailCommand())
+	rootCmd.AddCommand(c.buildServeCommand())
 
 	return rootCmd
 }

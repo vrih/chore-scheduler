@@ -1,0 +1,220 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --blue: #2563eb;
+  --blue-dark: #1d4ed8;
+  --green: #16a34a;
+  --red: #dc2626;
+  --amber: #d97706;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-400: #9ca3af;
+  --gray-600: #4b5563;
+  --gray-900: #111827;
+  --tab-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  color: var(--gray-900);
+  background: var(--gray-50);
+}
+
+/* ── Layout ── */
+#main {
+  padding: 0 0 calc(var(--tab-height) + var(--safe-bottom) + 8px);
+  min-height: 100vh;
+}
+
+.page { padding: 16px; }
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+.page-header h1 { font-size: 1.5rem; font-weight: 700; }
+.date-label { color: var(--gray-600); font-size: 0.9rem; }
+
+/* ── Tab bar ── */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  height: calc(var(--tab-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: #fff;
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  z-index: 100;
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--gray-600);
+  font-size: 0.7rem;
+  gap: 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab-icon { font-size: 1.4rem; line-height: 1; }
+.tab-label { font-size: 0.65rem; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 8px 16px; border-radius: 8px; border: none;
+  font-size: 0.95rem; font-weight: 500; cursor: pointer;
+  text-decoration: none; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-primary   { background: var(--blue); color: #fff; }
+.btn-primary:active { background: var(--blue-dark); }
+.btn-secondary { background: var(--gray-100); color: var(--gray-900); border: 1px solid var(--gray-200); }
+.btn-danger    { background: var(--red); color: #fff; }
+.btn-complete  { background: var(--green); color: #fff; padding: 8px 14px; }
+.btn-sm  { padding: 6px 12px; font-size: 0.85rem; }
+.btn-xs  { padding: 4px 8px;  font-size: 0.8rem; }
+
+/* ── Task cards (Today) ── */
+.effort-bar {
+  background: var(--gray-100);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+.task-cards { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.task-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  padding: 14px;
+}
+.task-card.task-overdue { border-left: 4px solid var(--red); }
+.task-card-body { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.task-info { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.task-name { font-weight: 600; font-size: 1rem; }
+.task-meta { font-size: 0.8rem; color: var(--gray-600); }
+.task-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ── Task list (Tasks tab) ── */
+.task-list { list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.task-list-item {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.task-list-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.task-list-due { font-size: 0.8rem; color: var(--gray-600); white-space: nowrap; }
+.task-list-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.text-overdue { color: var(--red); font-weight: 600; }
+
+/* ── Cleanliness badges ── */
+.cleanliness-badge {
+  display: inline-block; font-size: 0.7rem; font-weight: 600;
+  padding: 2px 6px; border-radius: 99px;
+}
+.cleanliness-Clean     { background: #d1fae5; color: #065f46; }
+.cleanliness-Due       { background: #fef3c7; color: #92400e; }
+.cleanliness-Dirty     { background: #fee2e2; color: #991b1b; }
+.cleanliness-Very\ Dirty { background: #dc2626; color: #fff; }
+.cleanliness-Unknown   { background: var(--gray-200); color: var(--gray-600); }
+
+.badge-overdue { background: var(--red); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 99px; font-weight: 600; }
+
+/* ── Rooms ── */
+.room-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.room-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  border-left: 4px solid var(--gray-200);
+}
+.room-card.status-Clean     { border-left-color: var(--green); }
+.room-card.status-Due       { border-left-color: var(--amber); }
+.room-card.status-Dirty     { border-left-color: var(--red); }
+.room-card.status-Very\ Dirty { border-left-color: #7f1d1d; }
+.room-card-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.room-name { font-weight: 600; font-size: 1rem; }
+.room-overall { font-size: 0.85rem; color: var(--gray-600); }
+.room-counts { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.75rem; color: var(--gray-600); }
+
+/* ── Upcoming ── */
+.days-selector { display: flex; gap: 6px; }
+.upcoming-grid { display: flex; flex-direction: column; gap: 12px; }
+.upcoming-day {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.upcoming-today { border-color: var(--blue); }
+.upcoming-day-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+  font-weight: 600; font-size: 0.9rem;
+}
+.upcoming-today .upcoming-day-header { background: #eff6ff; color: var(--blue); }
+.upcoming-effort { font-size: 0.8rem; color: var(--gray-600); font-weight: 400; }
+.upcoming-tasks { list-style: none; padding: 8px 14px; display: flex; flex-direction: column; gap: 6px; }
+.upcoming-task { display: flex; justify-content: space-between; font-size: 0.9rem; }
+.upcoming-task-name { flex: 1; }
+.upcoming-task-meta { color: var(--gray-600); font-size: 0.8rem; }
+.upcoming-empty { padding: 8px 14px; color: var(--gray-400); font-size: 0.85rem; }
+
+/* ── Forms ── */
+.task-form { display: flex; flex-direction: column; gap: 20px; max-width: 480px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-weight: 600; font-size: 0.9rem; }
+.form-hint { font-size: 0.8rem; color: var(--gray-600); }
+.form-input {
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 1rem;
+  width: 100%;
+  background: #fff;
+}
+.form-input:focus { outline: 2px solid var(--blue); border-color: transparent; }
+.radio-group { display: flex; flex-direction: column; gap: 8px; }
+.radio-option { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
+.form-actions { display: flex; gap: 10px; padding-top: 4px; }
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.toggle-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+
+/* ── Config / Danger zone ── */
+.danger-zone {
+  margin-top: 32px;
+  padding: 16px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff5f5;
+}
+.danger-zone h2 { font-size: 1rem; color: var(--red); margin-bottom: 8px; }
+.danger-zone p { font-size: 0.85rem; color: var(--gray-600); margin-bottom: 12px; }
+
+/* ── Misc ── */
+.empty-state { text-align: center; padding: 48px 16px; color: var(--gray-600); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.flash { padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+.flash-success { background: #d1fae5; color: #065f46; }
+.flash-error   { background: #fee2e2; color: #991b1b; }

@@ -1,0 +1,47 @@
+{{define "config.html"}}
+<div class="page">
+  <header class="page-header">
+    <h1>Settings</h1>
+  </header>
+
+  {{if .Flash}}<div class="flash flash-success">{{.Flash}}</div>{{end}}
+  {{if .Error}}<div class="flash flash-error">{{.Error}}</div>{{end}}
+
+  <form hx-post="/config" hx-target="#main" hx-swap="innerHTML" class="task-form">
+    <div class="form-group">
+      <label for="max_daily_effort">Max daily effort</label>
+      <p class="form-hint">Total effort points schedulable per day (effort 1=quick, 2=medium, 3=long).</p>
+      <input id="max_daily_effort" name="max_daily_effort" type="number"
+             class="form-input" value="{{.MaxDailyEffort}}" min="1" max="99">
+    </div>
+
+    <div class="form-group">
+      <label for="email_to">Email digest recipient</label>
+      <input id="email_to" name="email_to" type="email"
+             class="form-input" value="{{.EmailTo}}" placeholder="you@example.com">
+    </div>
+
+    <div class="form-group">
+      <label for="email_from">Email digest sender</label>
+      <input id="email_from" name="email_from" type="text"
+             class="form-input" value="{{.EmailFrom}}">
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save Settings</button>
+    </div>
+  </form>
+
+  <section class="danger-zone">
+    <h2>Danger Zone</h2>
+    <p>Clears all scheduled entries and rebuilds from scratch.</p>
+    <button class="btn btn-danger"
+            hx-post="/reschedule"
+            hx-target="#main"
+            hx-swap="innerHTML"
+            hx-confirm="Reschedule everything from scratch?">
+      Reschedule All Tasks
+    </button>
+  </section>
+</div>
+{{end}}

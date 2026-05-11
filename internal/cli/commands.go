@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/user/chore-scheduler/internal/models"
 	"github.com/user/chore-scheduler/internal/repository"
+	"github.com/user/chore-scheduler/internal/server"
 )
 
 // buildAddCommand creates the add subcommand
@@ -827,6 +831,53 @@ func (c *CLI) handleRoomTasks(room string) error {
 
 	table.Render()
 	return nil
+}
+
+// buildServeCommand creates the serve subcommand.
+func (c *CLI) buildServeCommand() *cobra.Command {
+	var addr string
+
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Start the web server",
+		Long:  `Run a persistent HTTP server with a web UI for managing chores from a browser or iPhone.`,
+		Example: `  chore-scheduler serve
+  chore-scheduler serve --addr 0.0.0.0:8080`,
+		// Override PersistentPreRunE so the server manages its own DB connection.
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return nil },
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return c.handleServe(addr)
+		},
+	}
+
+	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8080", "address to listen on")
+	return cmd
+}
+
+func (c *CLI) handleServe(addr string) error {
+	srv, err := server.New(addr, c.dbPath)
+	if err != nil {
+		return err
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Run() }()
+
+	select {
+	case <-ctx.Done():
+		fmt.Println("\nShutting down...")
+		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return srv.Shutdown(shutCtx)
+	case err := <-errCh:
+		if err != nil && err.Error() != "http: Server closed" {
+			return err
+		}
+		return nil
+	}
 }
 
 type emailTask struct {

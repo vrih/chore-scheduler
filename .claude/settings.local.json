@@ -13,7 +13,15 @@
       "Bash(./bin/chore-scheduler:*)",
       "Bash(make:*)",
       "Bash(make build:*)",
-      "Bash(make test:*)"
+      "Bash(make test:*)",
+      "Bash(curl -sL \"https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js\" -o /Users/daniel/chore-scheduler/internal/server/static/htmx.min.js)",
+      "Bash(python3 -)",
+      "Bash(go run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8181/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8181/today)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8181/tasks)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8181/manifest.json)",
+      "Bash(pkill -f \"chore-scheduler serve\")"
     ]
   }
 }

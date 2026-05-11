@@ -1,0 +1,46 @@
+{{define "upcoming.html"}}
+<div class="page">
+  <header class="page-header">
+    <h1>Upcoming</h1>
+    <div class="days-selector">
+      <a class="btn btn-sm {{if eq .Days 7}}btn-primary{{else}}btn-secondary{{end}}"
+         hx-get="/upcoming?days=7" hx-target="#main" hx-swap="innerHTML">7d</a>
+      <a class="btn btn-sm {{if eq .Days 14}}btn-primary{{else}}btn-secondary{{end}}"
+         hx-get="/upcoming?days=14" hx-target="#main" hx-swap="innerHTML">14d</a>
+      <a class="btn btn-sm {{if eq .Days 30}}btn-primary{{else}}btn-secondary{{end}}"
+         hx-get="/upcoming?days=30" hx-target="#main" hx-swap="innerHTML">30d</a>
+    </div>
+  </header>
+
+  {{if .Grid}}
+  <div class="upcoming-grid">
+    {{range .Grid}}
+    <div class="upcoming-day {{if .IsToday}}upcoming-today{{end}}">
+      <div class="upcoming-day-header">
+        <span class="upcoming-day-label">
+          {{if .IsToday}}Today{{else if .IsTomorrow}}Tomorrow{{else}}{{.Date.Format "Mon 2 Jan"}}{{end}}
+        </span>
+        {{if .Tasks}}
+        <span class="upcoming-effort">effort {{.TotalEffort}}</span>
+        {{end}}
+      </div>
+      {{if .Tasks}}
+      <ul class="upcoming-tasks">
+        {{range .Tasks}}
+        <li class="upcoming-task">
+          <span class="upcoming-task-name">{{.Name}}</span>
+          <span class="upcoming-task-meta">{{.Room}} &middot; {{effortLabel .Effort}}</span>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="upcoming-empty">Free</p>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="empty-state"><p>No tasks scheduled in this window.</p></div>
+  {{end}}
+</div>
+{{end}}
