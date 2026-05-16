@@ -24,6 +24,7 @@
       <div class="task-list-actions">
         <button class="btn btn-complete btn-sm"
                 hx-post="/tasks/{{.ID}}/complete"
+                hx-vals='{"return":"room"}'
                 hx-target="#main"
                 hx-swap="innerHTML">&#10003;</button>
         <a class="btn btn-secondary btn-xs"

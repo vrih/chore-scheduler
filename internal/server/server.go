@@ -16,6 +16,7 @@ import (
 type Server struct {
 	db             *db.DB
 	taskRepo       repository.TaskRepository
+	roomRepo       repository.RoomRepository
 	completionRepo repository.CompletionRepository
 	configRepo     repository.ConfigRepository
 	scheduledRepo  repository.ScheduledTaskRepository
@@ -46,6 +47,7 @@ func New(addr, dbPath string) (*Server, error) {
 	}
 
 	taskRepo := repository.NewTaskRepository(database)
+	roomRepo := repository.NewRoomRepository(database)
 	completionRepo := repository.NewCompletionRepository(database)
 	configRepo := repository.NewConfigRepository(database)
 	scheduledRepo := repository.NewScheduledTaskRepository(database)
@@ -59,6 +61,7 @@ func New(addr, dbPath string) (*Server, error) {
 	s := &Server{
 		db:             database,
 		taskRepo:       taskRepo,
+		roomRepo:       roomRepo,
 		completionRepo: completionRepo,
 		configRepo:     configRepo,
 		scheduledRepo:  scheduledRepo,

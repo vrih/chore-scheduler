@@ -87,6 +87,25 @@ func runMigrations(db *sql.DB) error {
 				CREATE INDEX idx_tasks_room ON tasks(room);
 			`,
 		},
+		{
+			version: 6,
+			up: `
+				CREATE TABLE rooms (
+					id    INTEGER PRIMARY KEY AUTOINCREMENT,
+					name  TEXT NOT NULL UNIQUE,
+					floor INTEGER NOT NULL DEFAULT 0
+				);
+
+				INSERT INTO rooms (name) SELECT DISTINCT room FROM tasks;
+
+				ALTER TABLE tasks ADD COLUMN room_id INTEGER REFERENCES rooms(id);
+				UPDATE tasks SET room_id = (SELECT id FROM rooms WHERE rooms.name = tasks.room);
+
+				DROP INDEX idx_tasks_room;
+				ALTER TABLE tasks DROP COLUMN room;
+				CREATE INDEX idx_tasks_room_id ON tasks(room_id);
+			`,
+		},
 	}
 
 	for _, m := range migrations {

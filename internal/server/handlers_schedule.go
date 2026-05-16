@@ -2,16 +2,23 @@ package server
 
 import (
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
 	"github.com/user/chore-scheduler/internal/models"
 )
 
+// RoomGroup groups today's tasks under a single room.
+type RoomGroup struct {
+	Room  string
+	Tasks []*models.Task
+}
+
 // TodayData is the view model for the today page.
 type TodayData struct {
 	Date        time.Time
-	Tasks       []*models.Task
+	Groups      []RoomGroup
 	TotalEffort int
 }
 
@@ -48,18 +55,29 @@ func (s *Server) handleToday(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var tasks []*models.Task
+	byRoom := make(map[string][]*models.Task)
 	totalEffort := 0
 	for _, st := range scheduled {
 		task, err := s.taskRepo.Get(st.TaskID)
 		if err != nil {
 			continue
 		}
-		tasks = append(tasks, task)
+		byRoom[task.Room] = append(byRoom[task.Room], task)
 		totalEffort += task.Effort
 	}
 
-	render(w, "today.html", TodayData{Date: today, Tasks: tasks, TotalEffort: totalEffort})
+	rooms := make([]string, 0, len(byRoom))
+	for room := range byRoom {
+		rooms = append(rooms, room)
+	}
+	sort.Strings(rooms)
+
+	groups := make([]RoomGroup, 0, len(rooms))
+	for _, room := range rooms {
+		groups = append(groups, RoomGroup{Room: room, Tasks: byRoom[room]})
+	}
+
+	render(w, "today.html", TodayData{Date: today, Groups: groups, TotalEffort: totalEffort})
 }
 
 func (s *Server) handleUpcoming(w http.ResponseWriter, r *http.Request) {
@@ -109,19 +127,6 @@ func (s *Server) handleReschedule(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// Return the today fragment with a success flash
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	scheduled, _ := s.scheduledRepo.GetByDate(today)
-	var tasks []*models.Task
-	totalEffort := 0
-	for _, st := range scheduled {
-		task, err := s.taskRepo.Get(st.TaskID)
-		if err != nil {
-			continue
-		}
-		tasks = append(tasks, task)
-		totalEffort += task.Effort
-	}
-	render(w, "today.html", TodayData{Date: today, Tasks: tasks, TotalEffort: totalEffort})
+	// Return the refreshed today fragment
+	s.handleToday(w, r)
 }

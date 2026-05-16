@@ -35,20 +35,58 @@ func NewTaskRepository(database *db.DB) TaskRepository {
 	return &taskRepository{db: database}
 }
 
+const taskSelectColumns = `t.id, t.name, r.name, t.effort, t.frequency_days,
+	t.last_completed, t.next_scheduled, t.created_at, t.updated_at, t.room_id`
+
+// scanTask scans a row produced with taskSelectColumns into a Task.
+func scanTask(s interface {
+	Scan(dest ...interface{}) error
+}) (*models.Task, error) {
+	task := &models.Task{}
+	if err := s.Scan(
+		&task.ID, &task.Name, &task.Room, &task.Effort, &task.FrequencyDays,
+		&task.LastCompleted, &task.NextScheduled, &task.CreatedAt, &task.UpdatedAt, &task.RoomID,
+	); err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+// resolveRoomID returns the id of the room with the given name, creating the
+// room row if it does not yet exist.
+func (r *taskRepository) resolveRoomID(name string) (int64, error) {
+	if _, err := r.db.Exec(
+		"INSERT INTO rooms (name) VALUES (?) ON CONFLICT(name) DO NOTHING", name,
+	); err != nil {
+		return 0, fmt.Errorf("failed to ensure room: %w", err)
+	}
+	var id int64
+	if err := r.db.QueryRow("SELECT id FROM rooms WHERE name = ?", name).Scan(&id); err != nil {
+		return 0, fmt.Errorf("failed to resolve room id: %w", err)
+	}
+	return id, nil
+}
+
 // Create inserts a new task into the database
 func (r *taskRepository) Create(task *models.Task) error {
 	if err := task.Validate(); err != nil {
 		return err
 	}
 
+	roomID, err := r.resolveRoomID(task.Room)
+	if err != nil {
+		return err
+	}
+	task.RoomID = roomID
+
 	now := time.Now()
 	task.CreatedAt = now
 	task.UpdatedAt = now
 
 	result, err := r.db.Exec(`
-		INSERT INTO tasks (name, room, effort, frequency_days, last_completed, next_scheduled, created_at, updated_at)
+		INSERT INTO tasks (name, room_id, effort, frequency_days, last_completed, next_scheduled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, task.Name, task.Room, task.Effort, task.FrequencyDays, task.LastCompleted, task.NextScheduled, task.CreatedAt, task.UpdatedAt)
+	`, task.Name, task.RoomID, task.Effort, task.FrequencyDays, task.LastCompleted, task.NextScheduled, task.CreatedAt, task.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create task: %w", err)
 	}
@@ -64,14 +102,11 @@ func (r *taskRepository) Create(task *models.Task) error {
 
 // Get retrieves a task by ID
 func (r *taskRepository) Get(id int64) (*models.Task, error) {
-	task := &models.Task{}
-	err := r.db.QueryRow(`
-		SELECT id, name, room, effort, frequency_days, last_completed, next_scheduled, created_at, updated_at
-		FROM tasks WHERE id = ?
-	`, id).Scan(
-		&task.ID, &task.Name, &task.Room, &task.Effort, &task.FrequencyDays,
-		&task.LastCompleted, &task.NextScheduled, &task.CreatedAt, &task.UpdatedAt,
-	)
+	task, err := scanTask(r.db.QueryRow(`
+		SELECT `+taskSelectColumns+`
+		FROM tasks t JOIN rooms r ON r.id = t.room_id
+		WHERE t.id = ?
+	`, id))
 	if err == sql.ErrNoRows {
 		return nil, ErrTaskNotFound
 	}
@@ -84,8 +119,9 @@ func (r *taskRepository) Get(id int64) (*models.Task, error) {
 // GetAll retrieves all tasks
 func (r *taskRepository) GetAll() ([]*models.Task, error) {
 	rows, err := r.db.Query(`
-		SELECT id, name, room, effort, frequency_days, last_completed, next_scheduled, created_at, updated_at
-		FROM tasks ORDER BY id
+		SELECT ` + taskSelectColumns + `
+		FROM tasks t JOIN rooms r ON r.id = t.room_id
+		ORDER BY t.id
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tasks: %w", err)
@@ -94,11 +130,8 @@ func (r *taskRepository) GetAll() ([]*models.Task, error) {
 
 	var tasks []*models.Task
 	for rows.Next() {
-		task := &models.Task{}
-		if err := rows.Scan(
-			&task.ID, &task.Name, &task.Room, &task.Effort, &task.FrequencyDays,
-			&task.LastCompleted, &task.NextScheduled, &task.CreatedAt, &task.UpdatedAt,
-		); err != nil {
+		task, err := scanTask(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
 		tasks = append(tasks, task)
@@ -117,13 +150,19 @@ func (r *taskRepository) Update(task *models.Task) error {
 		return err
 	}
 
+	roomID, err := r.resolveRoomID(task.Room)
+	if err != nil {
+		return err
+	}
+	task.RoomID = roomID
+
 	task.UpdatedAt = time.Now()
 
 	result, err := r.db.Exec(`
-		UPDATE tasks SET name = ?, room = ?, effort = ?, frequency_days = ?,
+		UPDATE tasks SET name = ?, room_id = ?, effort = ?, frequency_days = ?,
 		last_completed = ?, next_scheduled = ?, updated_at = ?
 		WHERE id = ?
-	`, task.Name, task.Room, task.Effort, task.FrequencyDays,
+	`, task.Name, task.RoomID, task.Effort, task.FrequencyDays,
 		task.LastCompleted, task.NextScheduled, task.UpdatedAt, task.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update task: %w", err)
@@ -162,10 +201,10 @@ func (r *taskRepository) Delete(id int64) error {
 func (r *taskRepository) GetOverdue() ([]*models.Task, error) {
 	today := time.Now().Format("2006-01-02")
 	rows, err := r.db.Query(`
-		SELECT id, name, room, effort, frequency_days, last_completed, next_scheduled, created_at, updated_at
-		FROM tasks
-		WHERE next_scheduled < ?
-		ORDER BY next_scheduled
+		SELECT `+taskSelectColumns+`
+		FROM tasks t JOIN rooms r ON r.id = t.room_id
+		WHERE t.next_scheduled < ?
+		ORDER BY t.next_scheduled
 	`, today)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get overdue tasks: %w", err)
@@ -174,11 +213,8 @@ func (r *taskRepository) GetOverdue() ([]*models.Task, error) {
 
 	var tasks []*models.Task
 	for rows.Next() {
-		task := &models.Task{}
-		if err := rows.Scan(
-			&task.ID, &task.Name, &task.Room, &task.Effort, &task.FrequencyDays,
-			&task.LastCompleted, &task.NextScheduled, &task.CreatedAt, &task.UpdatedAt,
-		); err != nil {
+		task, err := scanTask(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
 		tasks = append(tasks, task)
@@ -193,10 +229,10 @@ func (r *taskRepository) GetNeedingSchedule() ([]*models.Task, error) {
 	// Get tasks that need scheduling: no next_scheduled or within 30 days
 	futureDate := time.Now().AddDate(0, 0, 30).Format("2006-01-02")
 	rows, err := r.db.Query(`
-		SELECT id, name, room, effort, frequency_days, last_completed, next_scheduled, created_at, updated_at
-		FROM tasks
-		WHERE next_scheduled IS NULL OR next_scheduled <= ?
-		ORDER BY next_scheduled NULLS FIRST
+		SELECT `+taskSelectColumns+`
+		FROM tasks t JOIN rooms r ON r.id = t.room_id
+		WHERE t.next_scheduled IS NULL OR t.next_scheduled <= ?
+		ORDER BY t.next_scheduled NULLS FIRST
 	`, futureDate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tasks needing schedule: %w", err)
@@ -205,11 +241,8 @@ func (r *taskRepository) GetNeedingSchedule() ([]*models.Task, error) {
 
 	var tasks []*models.Task
 	for rows.Next() {
-		task := &models.Task{}
-		if err := rows.Scan(
-			&task.ID, &task.Name, &task.Room, &task.Effort, &task.FrequencyDays,
-			&task.LastCompleted, &task.NextScheduled, &task.CreatedAt, &task.UpdatedAt,
-		); err != nil {
+		task, err := scanTask(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
 		tasks = append(tasks, task)
@@ -221,10 +254,10 @@ func (r *taskRepository) GetNeedingSchedule() ([]*models.Task, error) {
 // GetByRoom retrieves all tasks for a specific room
 func (r *taskRepository) GetByRoom(room string) ([]*models.Task, error) {
 	rows, err := r.db.Query(`
-		SELECT id, name, room, effort, frequency_days, last_completed, next_scheduled, created_at, updated_at
-		FROM tasks
-		WHERE room = ?
-		ORDER BY id
+		SELECT `+taskSelectColumns+`
+		FROM tasks t JOIN rooms r ON r.id = t.room_id
+		WHERE r.name = ?
+		ORDER BY t.id
 	`, room)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tasks by room: %w", err)
@@ -233,11 +266,8 @@ func (r *taskRepository) GetByRoom(room string) ([]*models.Task, error) {
 
 	var tasks []*models.Task
 	for rows.Next() {
-		task := &models.Task{}
-		if err := rows.Scan(
-			&task.ID, &task.Name, &task.Room, &task.Effort, &task.FrequencyDays,
-			&task.LastCompleted, &task.NextScheduled, &task.CreatedAt, &task.UpdatedAt,
-		); err != nil {
+		task, err := scanTask(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
 		tasks = append(tasks, task)
@@ -249,7 +279,7 @@ func (r *taskRepository) GetByRoom(room string) ([]*models.Task, error) {
 // GetAllRooms retrieves a list of all distinct rooms
 func (r *taskRepository) GetAllRooms() ([]string, error) {
 	rows, err := r.db.Query(`
-		SELECT DISTINCT room FROM tasks ORDER BY room
+		SELECT name FROM rooms ORDER BY name
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rooms: %w", err)

@@ -148,6 +148,13 @@ func (s *Server) handleTaskComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.FormValue("return") == "room" {
+		if task, err := s.taskRepo.Get(id); err == nil {
+			s.renderRoomDetail(w, task.Room)
+			return
+		}
+	}
+
 	// Return refreshed today fragment
 	s.handleToday(w, r)
 }
@@ -205,6 +212,11 @@ func (s *Server) handleTaskPostpone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.refreshSchedule()
+
+	if r.FormValue("return") == "room" {
+		s.renderRoomDetail(w, task.Room)
+		return
+	}
 
 	s.handleToday(w, r)
 }

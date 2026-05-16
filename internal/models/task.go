@@ -9,7 +9,8 @@ import (
 type Task struct {
 	ID            int64
 	Name          string
-	Room          string // Room this task belongs to (e.g., "Kitchen", "Bathroom")
+	RoomID        int64  // FK to rooms.id
+	Room          string // Room name this task belongs to (e.g., "Kitchen", "Bathroom")
 	Effort        int    // 1-3 (1=quick, 2=medium, 3=long)
 	FrequencyDays int
 	LastCompleted *time.Time

@@ -4,7 +4,9 @@
     <h1>Rooms</h1>
   </header>
 
-  {{if .Rooms}}
+  {{if .FloorGroups}}
+  {{range .FloorGroups}}
+  <h2 class="floor-group-heading">{{.Label}}</h2>
   <ul class="room-list">
     {{range .Rooms}}
     <li class="room-card status-{{.WorstStatus}}"
@@ -20,9 +22,24 @@
         {{if .VeryDirty}}<span class="count-very-dirty">{{.VeryDirty}} very dirty</span>{{end}}
         {{if .Unknown}}<span class="count-unknown">{{.Unknown}} unknown</span>{{end}}
       </div>
+      <label class="room-floor" onclick="event.stopPropagation()">
+        <span class="room-floor-label">Floor</span>
+        <select name="floor"
+                hx-post="/rooms/{{.Name}}/floor"
+                hx-trigger="change"
+                hx-target="#main"
+                hx-swap="innerHTML"
+                hx-include="this">
+          {{$f := .Floor}}
+          {{range $i := seq 0 5}}
+          <option value="{{$i}}" {{if eq $i $f}}selected{{end}}>{{floorLabel $i}}</option>
+          {{end}}
+        </select>
+      </label>
     </li>
     {{end}}
   </ul>
+  {{end}}
   {{else}}
   <div class="empty-state"><p>No rooms yet. Add tasks with rooms assigned.</p></div>
   {{end}}

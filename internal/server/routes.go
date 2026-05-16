@@ -31,6 +31,7 @@ func (s *Server) routes() *http.ServeMux {
 	// Rooms
 	mux.HandleFunc("GET /rooms", s.handleRooms)
 	mux.HandleFunc("GET /rooms/{name}", s.handleRoomDetail)
+	mux.HandleFunc("POST /rooms/{name}/floor", s.handleRoomSetFloor)
 
 	// Config
 	mux.HandleFunc("GET /config", s.handleConfig)

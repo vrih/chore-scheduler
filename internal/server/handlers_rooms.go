@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"sort"
+	"strconv"
 
 	"github.com/user/chore-scheduler/internal/models"
 )
@@ -9,6 +11,7 @@ import (
 // RoomSummary holds the cleanliness counts for a single room.
 type RoomSummary struct {
 	Name        string
+	Floor       int
 	Clean       int
 	Due         int
 	Dirty       int
@@ -18,9 +21,16 @@ type RoomSummary struct {
 	Overall     string
 }
 
+// FloorGroup groups rooms on a single floor.
+type FloorGroup struct {
+	Floor int
+	Label string
+	Rooms []RoomSummary
+}
+
 // RoomsData is the view model for the rooms list page.
 type RoomsData struct {
-	Rooms []RoomSummary
+	FloorGroups []FloorGroup
 }
 
 // RoomDetailData is the view model for a single room page.
@@ -36,21 +46,56 @@ func (s *Server) handleRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var summaries []RoomSummary
+	floors, err := s.roomRepo.GetFloors()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	byFloor := make(map[int][]RoomSummary)
 	for _, room := range rooms {
 		tasks, err := s.taskRepo.GetByRoom(room)
 		if err != nil {
 			continue
 		}
 		summary := buildRoomSummary(room, tasks)
-		summaries = append(summaries, summary)
+		summary.Floor = floors[room]
+		byFloor[summary.Floor] = append(byFloor[summary.Floor], summary)
 	}
 
-	render(w, "rooms.html", RoomsData{Rooms: summaries})
+	floorNums := make([]int, 0, len(byFloor))
+	for f := range byFloor {
+		floorNums = append(floorNums, f)
+	}
+	sort.Ints(floorNums)
+
+	groups := make([]FloorGroup, 0, len(floorNums))
+	for _, f := range floorNums {
+		groups = append(groups, FloorGroup{Floor: f, Label: floorLabel(f), Rooms: byFloor[f]})
+	}
+
+	render(w, "rooms.html", RoomsData{FloorGroups: groups})
+}
+
+func (s *Server) handleRoomSetFloor(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	floor, err := strconv.Atoi(r.FormValue("floor"))
+	if err != nil {
+		http.Error(w, "invalid floor", http.StatusBadRequest)
+		return
+	}
+	if err := s.roomRepo.SetFloor(name, floor); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.handleRooms(w, r)
 }
 
 func (s *Server) handleRoomDetail(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
+	s.renderRoomDetail(w, r.PathValue("name"))
+}
+
+func (s *Server) renderRoomDetail(w http.ResponseWriter, name string) {
 	tasks, err := s.taskRepo.GetByRoom(name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

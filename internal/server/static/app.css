@@ -156,6 +156,27 @@ html, body {
 .room-name { font-weight: 600; font-size: 1rem; }
 .room-overall { font-size: 0.85rem; color: var(--gray-600); }
 .room-counts { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.75rem; color: var(--gray-600); }
+.room-floor { display: flex; align-items: center; gap: 6px; margin-top: 10px; cursor: default; }
+.room-floor-label { font-size: 0.75rem; color: var(--gray-600); }
+.room-floor select {
+  font-size: 0.8rem;
+  padding: 4px 6px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--gray-50);
+  color: var(--gray-900);
+}
+
+/* ── Section group headings ── */
+.room-group-heading, .floor-group-heading {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-600);
+  margin: 18px 0 8px;
+}
+.room-group-heading:first-of-type, .floor-group-heading:first-of-type { margin-top: 8px; }
 
 /* ── Upcoming ── */
 .days-selector { display: flex; gap: 6px; }

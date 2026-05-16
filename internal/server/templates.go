@@ -2,6 +2,7 @@ package server
 
 import (
 	"embed"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -16,7 +17,30 @@ var tmpl = template.Must(
 
 var templateFuncs = template.FuncMap{
 	"effortLabel": effortLabel,
+	"floorLabel":  floorLabel,
 	"add":         func(a, b int) int { return a + b },
+	"seq": func(lo, hi int) []int {
+		out := make([]int, 0, hi-lo+1)
+		for i := lo; i <= hi; i++ {
+			out = append(out, i)
+		}
+		return out
+	},
+}
+
+func floorLabel(n int) string {
+	switch n {
+	case 0:
+		return "Ground floor"
+	case 1:
+		return "1st floor"
+	case 2:
+		return "2nd floor"
+	case 3:
+		return "3rd floor"
+	default:
+		return fmt.Sprintf("%dth floor", n)
+	}
 }
 
 func effortLabel(effort int) string {
