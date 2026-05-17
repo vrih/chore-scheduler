@@ -21,7 +21,11 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8181/today)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8181/tasks)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8181/manifest.json)",
-      "Bash(pkill -f \"chore-scheduler serve\")"
+      "Bash(pkill -f \"chore-scheduler serve\")",
+      "Bash(go vet *)",
+      "Bash(curl -s -X POST '127.0.0.1:18099/rooms/Kitchen/floor' -d 'floor=1')",
+      "Bash(curl -s 127.0.0.1:18099/rooms)",
+      "Bash(curl -s -X POST '127.0.0.1:18099/tasks/1/complete' -d 'return=room')"
     ]
   }
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/md5"
 	"embed"
 	"fmt"
 	"html/template"
@@ -16,6 +17,7 @@ var tmpl = template.Must(
 )
 
 var templateFuncs = template.FuncMap{
+	"cssVersion":  func() string { return cssVersion },
 	"effortLabel": effortLabel,
 	"floorLabel":  floorLabel,
 	"add":         func(a, b int) int { return a + b },
@@ -65,6 +67,14 @@ func render(w http.ResponseWriter, name string, data any) {
 
 //go:embed static
 var staticFS embed.FS
+
+var cssVersion string
+
+func init() {
+	data, _ := staticFS.ReadFile("static/app.css")
+	h := md5.Sum(data)
+	cssVersion = fmt.Sprintf("%x", h[:4])
+}
 
 func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	sub, _ := fs.Sub(staticFS, "static")
