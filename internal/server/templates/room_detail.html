@@ -1,42 +1,47 @@
 {{define "room_detail.html"}}
 <div class="page">
-  <header class="page-header">
-    <a class="btn btn-secondary btn-sm" hx-get="/rooms" hx-target="#main" hx-swap="innerHTML">&larr; Rooms</a>
+  <div class="back-head">
+    <button class="back-btn"
+            hx-get="/rooms" hx-target="#main" hx-swap="innerHTML">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      All rooms
+    </button>
     <h1>{{.Name}}</h1>
-  </header>
+  </div>
 
   {{if .Tasks}}
-  <ul class="task-list">
+  <div class="task-table">
     {{range .Tasks}}
-    <li class="task-list-item">
-      <div class="task-list-main">
-        <span class="task-name">{{.Name}}</span>
-        <span class="task-meta">{{effortLabel .Effort}} &middot; every {{.FrequencyDays}}d</span>
-        <span class="cleanliness-badge cleanliness-{{.CleanlinessStatus}}">{{.CleanlinessStatus}}</span>
+    <div class="task-row task-row-room">
+      <div class="accent-bar-abs {{if .IsOverdue}}accent-bar-abs-on{{end}}"></div>
+      <div class="task-row-main">
+        <div class="task-name">{{.Name}}</div>
+        <div class="task-row-meta">
+          {{effortDots .Effort}}
+          <span>{{effortLabel .Effort}} &middot; every {{.FrequencyDays}}d</span>
+        </div>
+        <div class="task-last">
+          {{if .LastCompleted}}Last: {{.LastCompleted.Format "2 Jan"}}{{else}}Never done{{end}}
+        </div>
       </div>
-      <div class="task-list-due">
-        {{if .LastCompleted}}
-          Last: {{.LastCompleted.Format "2 Jan"}}
-        {{else}}
-          Never done
-        {{end}}
-      </div>
-      <div class="task-list-actions">
-        <button class="btn btn-complete btn-sm"
-                hx-post="/tasks/{{.ID}}/complete"
-                hx-vals='{"return":"room"}'
-                hx-target="#main"
-                hx-swap="innerHTML">&#10003;</button>
-        <a class="btn btn-secondary btn-xs"
-           hx-get="/tasks/{{.ID}}/edit"
-           hx-target="#main"
-           hx-swap="innerHTML">Edit</a>
-      </div>
-    </li>
+      <button class="icon-btn"
+              hx-get="/tasks/{{.ID}}/edit"
+              hx-target="#main" hx-swap="innerHTML"
+              title="Edit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14.5 5.5l4 4"/></svg>
+      </button>
+      <button class="done-btn done-btn-sm"
+              hx-post="/tasks/{{.ID}}/complete"
+              hx-vals='{"return":"room"}'
+              hx-target="#main" hx-swap="innerHTML"
+              title="Mark done">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+      </button>
+    </div>
     {{end}}
-  </ul>
+  </div>
   {{else}}
-  <div class="empty-state"><p>No tasks in this room.</p></div>
+  <div class="empty-state">No tasks in this room.</div>
   {{end}}
 </div>
 {{end}}

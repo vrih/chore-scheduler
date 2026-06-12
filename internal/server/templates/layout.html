@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#9a7b53">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Chores">
   <title>Chore Scheduler</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/app.css?v={{cssVersion}}">
   <script src="/static/htmx.min.js" defer></script>
   <script>
@@ -19,23 +22,148 @@
   </script>
 </head>
 <body>
+
+  <!-- Desktop sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="sidebar-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5v-6h5v6"/></svg>
+      </span>
+      <span class="sidebar-logo-text">Chores</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-item active" data-tab="today" onclick="setTab('today')" hx-get="/today" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.6"/><path d="M12 2.5v2M12 19.5v2M5 5l1.4 1.4M17.6 17.6 19 19M2.5 12h2M19.5 12h2M5 19 6.4 17.6M17.6 6.4 19 5"/></svg></span>
+        Today
+      </button>
+      <button class="sidebar-item" data-tab="upcoming" onclick="setTab('upcoming')" hx-get="/upcoming" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/></svg></span>
+        Upcoming
+      </button>
+      <button class="sidebar-item" data-tab="tasks" onclick="setTab('tasks')" hx-get="/tasks" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M3.6 6.2 4.8 7.4 6.8 5M3.6 11.8 4.8 13l2-2.4"/><circle cx="4.6" cy="17.5" r="0.9"/></svg></span>
+        Tasks
+      </button>
+      <button class="sidebar-item" data-tab="rooms" onclick="setTab('rooms')" hx-get="/rooms" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5v-6h5v6"/></svg></span>
+        Rooms
+      </button>
+      <button class="sidebar-item" data-tab="settings" onclick="setTab('settings')" hx-get="/config" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2.2"/><circle cx="9" cy="16" r="2.2"/></svg></span>
+        Settings
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main content -->
   <main id="main" hx-get="/today" hx-trigger="load" hx-target="#main" hx-swap="innerHTML"></main>
+
+  <!-- Mobile bottom tab bar -->
   <nav class="tab-bar">
-    <a href="#" class="tab" hx-get="/today" hx-target="#main" hx-push-url="false">
-      <span class="tab-icon">📋</span><span class="tab-label">Today</span>
-    </a>
-    <a href="#" class="tab" hx-get="/upcoming" hx-target="#main" hx-push-url="false">
-      <span class="tab-icon">📅</span><span class="tab-label">Upcoming</span>
-    </a>
-    <a href="#" class="tab" hx-get="/tasks" hx-target="#main" hx-push-url="false">
-      <span class="tab-icon">✅</span><span class="tab-label">Tasks</span>
-    </a>
-    <a href="#" class="tab" hx-get="/rooms" hx-target="#main" hx-push-url="false">
-      <span class="tab-icon">🏠</span><span class="tab-label">Rooms</span>
-    </a>
-    <a href="#" class="tab" hx-get="/config" hx-target="#main" hx-push-url="false">
-      <span class="tab-icon">⚙️</span><span class="tab-label">Settings</span>
-    </a>
+    <button class="tab active" data-tab="today" onclick="setTab('today')" hx-get="/today" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.6"/><path d="M12 2.5v2M12 19.5v2M5 5l1.4 1.4M17.6 17.6 19 19M2.5 12h2M19.5 12h2M5 19 6.4 17.6M17.6 6.4 19 5"/></svg></span>
+      <span class="tab-label">Today</span>
+    </button>
+    <button class="tab" data-tab="upcoming" onclick="setTab('upcoming')" hx-get="/upcoming" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/></svg></span>
+      <span class="tab-label">Upcoming</span>
+    </button>
+    <button class="tab" data-tab="tasks" onclick="setTab('tasks')" hx-get="/tasks" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M3.6 6.2 4.8 7.4 6.8 5M3.6 11.8 4.8 13l2-2.4"/><circle cx="4.6" cy="17.5" r="0.9"/></svg></span>
+      <span class="tab-label">Tasks</span>
+    </button>
+    <button class="tab" data-tab="rooms" onclick="setTab('rooms')" hx-get="/rooms" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5v-6h5v6"/></svg></span>
+      <span class="tab-label">Rooms</span>
+    </button>
+    <button class="tab" data-tab="settings" onclick="setTab('settings')" hx-get="/config" hx-target="#main" hx-swap="innerHTML" hx-push-url="false">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2.2"/><circle cx="9" cy="16" r="2.2"/></svg></span>
+      <span class="tab-label">Settings</span>
+    </button>
   </nav>
+
+  <script>
+  // ── Active tab management ──
+  function setTab(id) {
+    document.querySelectorAll('[data-tab]').forEach(function(el) {
+      el.classList.toggle('active', el.dataset.tab === id);
+    });
+  }
+
+  // Re-apply active class after HTMX swaps (in case nav stays open)
+  document.body.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'main') {
+      // active tab is already set by the click handler
+    }
+  });
+
+  // ── Swipe-to-reveal (mobile today cards) ──
+  (function() {
+    var dragId = null, startX = 0, startY = 0, isDragging = false, openId = null;
+
+    document.addEventListener('pointerdown', function(e) {
+      var row = e.target.closest && e.target.closest('.swipe-row');
+      if (!row) return;
+      dragId = row.dataset.id;
+      startX = e.clientX;
+      startY = e.clientY;
+      isDragging = false;
+      var card = row.querySelector('.swipe-card');
+      if (card) card.style.transition = 'none';
+    });
+
+    document.addEventListener('pointermove', function(e) {
+      if (!dragId) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      if (!isDragging && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      if (!isDragging && Math.abs(dy) > Math.abs(dx)) { dragId = null; return; }
+      isDragging = true;
+      var row = document.querySelector('.swipe-row[data-id="' + dragId + '"]');
+      if (!row) return;
+      var card = row.querySelector('.swipe-card');
+      if (!card) return;
+      var base = openId === dragId ? -152 : 0;
+      var off = Math.max(-152, Math.min(0, base + dx));
+      card.style.transform = 'translateX(' + off + 'px)';
+    });
+
+    document.addEventListener('pointerup', function(e) {
+      if (!dragId) return;
+      var id = dragId;
+      dragId = null;
+      var row = document.querySelector('.swipe-row[data-id="' + id + '"]');
+      if (!row) return;
+      var card = row.querySelector('.swipe-card');
+      if (!card) return;
+      card.style.transition = 'transform 0.22s ease';
+
+      if (!isDragging) {
+        if (openId === id) { openId = null; card.style.transform = 'translateX(0)'; }
+        isDragging = false;
+        return;
+      }
+      isDragging = false;
+
+      var dx = e.clientX - startX;
+      var base = openId === id ? -152 : 0;
+      var shouldOpen = (base + dx) < -72;
+
+      if (shouldOpen) {
+        if (openId && openId !== id) {
+          var prev = document.querySelector('.swipe-row[data-id="' + openId + '"]');
+          if (prev) { var pc = prev.querySelector('.swipe-card'); if (pc) { pc.style.transition = 'transform 0.22s ease'; pc.style.transform = 'translateX(0)'; } }
+        }
+        openId = id;
+        card.style.transform = 'translateX(-152px)';
+      } else {
+        if (openId === id) openId = null;
+        card.style.transform = 'translateX(0)';
+      }
+    });
+
+    document.addEventListener('pointercancel', function() { dragId = null; isDragging = false; });
+  })();
+  </script>
 </body>
 </html>{{end}}

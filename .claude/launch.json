@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "chore-scheduler",
+      "runtimeExecutable": "/Users/daniel/chore-scheduler/bin/chore-scheduler",
+      "runtimeArgs": ["serve", "--addr", ":8080"],
+      "port": 8080
+    }
+  ]
+}

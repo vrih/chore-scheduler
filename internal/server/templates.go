@@ -19,6 +19,7 @@ var tmpl = template.Must(
 var templateFuncs = template.FuncMap{
 	"cssVersion":  func() string { return cssVersion },
 	"effortLabel": effortLabel,
+	"effortDots":  effortDots,
 	"floorLabel":  floorLabel,
 	"add":         func(a, b int) int { return a + b },
 	"seq": func(lo, hi int) []int {
@@ -35,14 +36,27 @@ func floorLabel(n int) string {
 	case 0:
 		return "Ground floor"
 	case 1:
-		return "1st floor"
+		return "First floor"
 	case 2:
-		return "2nd floor"
+		return "Second floor"
 	case 3:
-		return "3rd floor"
+		return "Loft"
 	default:
-		return fmt.Sprintf("%dth floor", n)
+		return fmt.Sprintf("Floor %d", n)
 	}
+}
+
+func effortDots(effort int) template.HTML {
+	out := `<span class="effort-dots">`
+	for i := 1; i <= 3; i++ {
+		if i <= effort {
+			out += `<span class="dot dot-on"></span>`
+		} else {
+			out += `<span class="dot dot-off"></span>`
+		}
+	}
+	out += `</span>`
+	return template.HTML(out)
 }
 
 func effortLabel(effort int) string {

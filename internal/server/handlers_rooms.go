@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/user/chore-scheduler/internal/models"
 )
@@ -12,11 +13,14 @@ import (
 type RoomSummary struct {
 	Name        string
 	Floor       int
+	Monogram    string // first letter of Name, uppercase
 	Clean       int
 	Due         int
 	Dirty       int
 	VeryDirty   int
 	Unknown     int
+	Total       int // total tasks
+	DueCount    int // tasks that need attention (Due+Dirty+VeryDirty)
 	WorstStatus string
 	Overall     string
 }
@@ -105,7 +109,11 @@ func (s *Server) renderRoomDetail(w http.ResponseWriter, name string) {
 }
 
 func buildRoomSummary(name string, tasks []*models.Task) RoomSummary {
-	s := RoomSummary{Name: name, WorstStatus: models.CleanlinessClean}
+	mono := ""
+	if len(name) > 0 {
+		mono = strings.ToUpper(string([]rune(name)[:1]))
+	}
+	s := RoomSummary{Name: name, Monogram: mono, Total: len(tasks), WorstStatus: models.CleanlinessClean}
 	order := map[string]int{
 		models.CleanlinessClean:     0,
 		models.CleanlinessUnknown:   1,
@@ -131,6 +139,7 @@ func buildRoomSummary(name string, tasks []*models.Task) RoomSummary {
 			s.WorstStatus = st
 		}
 	}
+	s.DueCount = s.Due + s.Dirty + s.VeryDirty
 	s.Overall = roomOverall(s.WorstStatus)
 	return s
 }

@@ -1,52 +1,83 @@
 {{define "task_form.html"}}
-<div class="page">
-  <header class="page-header">
-    <a class="btn btn-secondary btn-sm" hx-get="/tasks" hx-target="#main" hx-swap="innerHTML">&larr; Back</a>
-    <h1>{{if .IsNew}}Add Task{{else}}Edit Task{{end}}</h1>
-  </header>
-
-  {{if .Error}}<div class="flash flash-error">{{.Error}}</div>{{end}}
-
-  <form {{if .IsNew}}hx-post="/tasks"{{else}}hx-post="/tasks/{{.Task.ID}}"{{end}}
-        hx-target="#main" hx-swap="innerHTML" class="task-form">
-
-    <div class="form-group">
-      <label for="name">Task name</label>
-      <input id="name" name="name" type="text" class="form-input"
-             value="{{.Task.Name}}" placeholder="e.g. Vacuum living room" required autofocus>
+<div class="page page-form">
+  <div class="form-card">
+    <div class="form-card-head">
+      <h1>{{if .IsNew}}New chore{{else}}Edit chore{{end}}</h1>
+      <button class="form-close"
+              hx-get="/tasks" hx-target="#main" hx-swap="innerHTML"
+              aria-label="Close">&times;</button>
     </div>
 
-    <div class="form-group">
-      <label for="room">Room</label>
-      <input id="room" name="room" type="text" class="form-input"
-             value="{{.Task.Room}}" placeholder="e.g. Kitchen" required>
-    </div>
+    {{if .Error}}<div class="flash flash-error">{{.Error}}</div>{{end}}
 
-    <div class="form-group">
-      <label>Effort</label>
-      <div class="radio-group">
-        <label class="radio-option">
-          <input type="radio" name="effort" value="1" {{if eq .Task.Effort 1}}checked{{end}}> Quick (5–15 min)
-        </label>
-        <label class="radio-option">
-          <input type="radio" name="effort" value="2" {{if eq .Task.Effort 2}}checked{{end}}> Medium (15–45 min)
-        </label>
-        <label class="radio-option">
-          <input type="radio" name="effort" value="3" {{if eq .Task.Effort 3}}checked{{end}}> Long (45+ min)
-        </label>
+    <form {{if .IsNew}}hx-post="/tasks"{{else}}hx-post="/tasks/{{.Task.ID}}"{{end}}
+          hx-target="#main" hx-swap="innerHTML">
+
+      <div class="field-group">
+        <label class="field-label">Chore</label>
+        <input name="name" type="text" class="field-input"
+               value="{{.Task.Name}}" placeholder="e.g. Wipe down counters" required autofocus>
       </div>
-    </div>
 
-    <div class="form-group">
-      <label for="frequency">Repeat every (days)</label>
-      <input id="frequency" name="frequency" type="number" class="form-input"
-             value="{{.Task.FrequencyDays}}" min="1" max="365" required>
-    </div>
+      <div class="field-group">
+        <label class="field-label">Room</label>
+        <input name="room" type="text" class="field-input" list="rooms-list"
+               value="{{.Task.Room}}" placeholder="e.g. Kitchen" required>
+        <datalist id="rooms-list">
+          {{range .Rooms}}<option value="{{.}}">{{end}}
+        </datalist>
+      </div>
 
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">{{if .IsNew}}Add Task{{else}}Save Changes{{end}}</button>
-      <a class="btn btn-secondary" hx-get="/tasks" hx-target="#main" hx-swap="innerHTML">Cancel</a>
-    </div>
-  </form>
+      <div class="field-group">
+        <label class="field-label">Effort</label>
+        <div class="effort-group">
+          <label class="effort-opt {{if eq .Task.Effort 1}}active{{end}}">
+            <input type="radio" name="effort" value="1" {{if eq .Task.Effort 1}}checked{{end}}>
+            Quick
+          </label>
+          <label class="effort-opt {{if eq .Task.Effort 2}}active{{end}}">
+            <input type="radio" name="effort" value="2" {{if eq .Task.Effort 2}}checked{{end}}>
+            Medium
+          </label>
+          <label class="effort-opt {{if eq .Task.Effort 3}}active{{end}}">
+            <input type="radio" name="effort" value="3" {{if eq .Task.Effort 3}}checked{{end}}>
+            Long
+          </label>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Repeat every</label>
+        <div class="repeat-row">
+          <input name="frequency" type="number" class="field-input field-input-sm"
+                 value="{{.Task.FrequencyDays}}" min="1" max="365" required inputmode="numeric">
+          <span class="repeat-unit">days</span>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary-full">
+        {{if .IsNew}}Add chore{{else}}Save changes{{end}}
+      </button>
+
+      {{if not .IsNew}}
+      <button type="button" class="btn-danger-ghost"
+              hx-post="/tasks/{{.Task.ID}}/delete"
+              hx-target="#main" hx-swap="innerHTML"
+              hx-confirm="Delete {{.Task.Name}}?">
+        Delete chore
+      </button>
+      {{end}}
+
+    </form>
+  </div>
 </div>
+<script>
+  // Highlight effort button on radio change
+  document.querySelectorAll('.effort-opt input').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      document.querySelectorAll('.effort-opt').forEach(function(l) { l.classList.remove('active'); });
+      this.parentElement.classList.add('active');
+    });
+  });
+</script>
 {{end}}

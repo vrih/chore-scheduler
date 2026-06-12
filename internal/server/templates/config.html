@@ -1,47 +1,45 @@
 {{define "config.html"}}
 <div class="page">
-  <header class="page-header">
-    <h1>Settings</h1>
-  </header>
+  <h1 class="page-title">Settings</h1>
 
   {{if .Flash}}<div class="flash flash-success">{{.Flash}}</div>{{end}}
   {{if .Error}}<div class="flash flash-error">{{.Error}}</div>{{end}}
 
-  <form hx-post="/config" hx-target="#main" hx-swap="innerHTML" class="task-form">
-    <div class="form-group">
-      <label for="max_daily_effort">Max daily effort</label>
-      <p class="form-hint">Total effort points schedulable per day (effort 1=quick, 2=medium, 3=long).</p>
-      <input id="max_daily_effort" name="max_daily_effort" type="number"
-             class="form-input" value="{{.MaxDailyEffort}}" min="1" max="99">
-    </div>
+  <div class="settings-card">
+    <form hx-post="/config" hx-target="#main" hx-swap="innerHTML">
 
-    <div class="form-group">
-      <label for="email_to">Email digest recipient</label>
-      <input id="email_to" name="email_to" type="email"
-             class="form-input" value="{{.EmailTo}}" placeholder="you@example.com">
-    </div>
+      <div class="field-group">
+        <label class="field-label">Max daily effort</label>
+        <div class="field-hint">Total effort schedulable per day &middot; Quick 1 &middot; Medium 2 &middot; Long 3</div>
+        <input name="max_daily_effort" type="number" class="field-input field-input-sm"
+               value="{{.MaxDailyEffort}}" min="1" max="99">
+      </div>
 
-    <div class="form-group">
-      <label for="email_from">Email digest sender</label>
-      <input id="email_from" name="email_from" type="text"
-             class="form-input" value="{{.EmailFrom}}">
-    </div>
+      <div class="field-group">
+        <label class="field-label">Email digest recipient</label>
+        <input name="email_to" type="email" class="field-input"
+               value="{{.EmailTo}}" placeholder="you@example.com">
+      </div>
 
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Save Settings</button>
-    </div>
-  </form>
+      <div class="field-group">
+        <label class="field-label">Email digest sender</label>
+        <input name="email_from" type="email" class="field-input"
+               value="{{.EmailFrom}}">
+      </div>
 
-  <section class="danger-zone">
-    <h2>Danger Zone</h2>
-    <p>Clears all scheduled entries and rebuilds from scratch.</p>
-    <button class="btn btn-danger"
+      <button type="submit" class="btn-primary-full" style="width:auto;padding:13px 28px">Save settings</button>
+    </form>
+  </div>
+
+  <div class="danger-card">
+    <div class="danger-card-title">Reschedule everything</div>
+    <div class="danger-card-body">Clears all scheduled entries and rebuilds from scratch.</div>
+    <button class="btn-danger-outline"
             hx-post="/reschedule"
-            hx-target="#main"
-            hx-swap="innerHTML"
+            hx-target="#main" hx-swap="innerHTML"
             hx-confirm="Reschedule everything from scratch?">
-      Reschedule All Tasks
+      Reschedule all tasks
     </button>
-  </section>
+  </div>
 </div>
 {{end}}

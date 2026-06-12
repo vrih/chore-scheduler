@@ -1,51 +1,59 @@
 {{define "tasks_list.html"}}
 <div class="page">
-  <header class="page-header">
+  <div class="page-head">
     <h1>Tasks</h1>
-    <div class="header-actions">
-      <label class="toggle-label">
-        <input type="checkbox" hx-get="/tasks?overdue=1" hx-target="#main" hx-swap="innerHTML"
-               {{if .OverdueOnly}}checked{{end}}
-               hx-trigger="change">
+    <div class="page-head-actions">
+      <label class="overdue-toggle">
+        <input type="checkbox" {{if .OverdueOnly}}checked{{end}}
+               hx-get="/tasks{{if not .OverdueOnly}}?overdue=1{{end}}"
+               hx-target="#main" hx-swap="innerHTML" hx-trigger="change">
         Overdue only
       </label>
-      <a class="btn btn-primary btn-sm" hx-get="/tasks/new" hx-target="#main" hx-swap="innerHTML">+ Add</a>
+      <button class="add-btn"
+              hx-get="/tasks/new" hx-target="#main" hx-swap="innerHTML">+ Add chore</button>
     </div>
-  </header>
+  </div>
 
   {{if .Flash}}<div class="flash flash-success">{{.Flash}}</div>{{end}}
 
   {{if .Tasks}}
-  <ul class="task-list">
+  <div class="task-table">
     {{range .Tasks}}
-    <li class="task-list-item" id="task-row-{{.ID}}">
-      <div class="task-list-main">
-        <span class="task-name">{{.Name}}</span>
-        <span class="task-meta">{{.Room}} &middot; {{effortLabel .Effort}} &middot; every {{.FrequencyDays}}d</span>
-        <span class="cleanliness-badge cleanliness-{{.CleanlinessStatus}}">{{.CleanlinessStatus}}</span>
+    <div class="task-row" id="task-row-{{.ID}}">
+      <div class="task-row-main">
+        <div class="task-name">{{.Name}}</div>
+        <div class="task-row-meta">{{.Room}} &middot; {{effortLabel .Effort}} &middot; every {{.FrequencyDays}}d</div>
       </div>
-      <div class="task-list-due">
-        {{if .NextScheduled}}
-          <span class="{{if .IsOverdue}}text-overdue{{end}}">
-            {{if .IsOverdue}}Overdue{{else if .IsDueToday}}Today{{else}}{{.NextScheduled.Format "2 Jan"}}{{end}}
-          </span>
-        {{else}}&mdash;{{end}}
+      <div class="task-row-due">
+        {{if .IsOverdue}}
+          <span class="overdue-badge">Overdue</span>
+        {{else if .NextScheduled}}
+          <span class="due-label">{{.NextScheduled.Format "2 Jan"}}</span>
+        {{else}}
+          <span class="due-label">&mdash;</span>
+        {{end}}
       </div>
-      <div class="task-list-actions">
-        <a class="btn btn-secondary btn-xs" hx-get="/tasks/{{.ID}}/edit" hx-target="#main" hx-swap="innerHTML">Edit</a>
-        <button class="btn btn-danger btn-xs"
-                hx-post="/tasks/{{.ID}}/delete"
-                hx-target="#task-row-{{.ID}}"
-                hx-swap="outerHTML"
-                hx-confirm="Delete {{.Name}}?">Del</button>
-      </div>
-    </li>
+      <button class="icon-btn"
+              hx-get="/tasks/{{.ID}}/edit"
+              hx-target="#main" hx-swap="innerHTML"
+              title="Edit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14.5 5.5l4 4"/></svg>
+      </button>
+      <button class="icon-btn icon-btn-danger"
+              hx-post="/tasks/{{.ID}}/delete"
+              hx-target="#task-row-{{.ID}}"
+              hx-swap="outerHTML"
+              hx-confirm="Delete {{.Name}}?"
+              title="Delete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
+      </button>
+    </div>
     {{end}}
-  </ul>
+  </div>
   {{else}}
   <div class="empty-state">
     <p>No tasks yet.</p>
-    <a class="btn btn-primary" hx-get="/tasks/new" hx-target="#main" hx-swap="innerHTML">Add your first task</a>
+    <button class="add-btn" hx-get="/tasks/new" hx-target="#main" hx-swap="innerHTML">Add your first chore</button>
   </div>
   {{end}}
 </div>

@@ -1,47 +1,23 @@
 {{define "rooms.html"}}
 <div class="page">
-  <header class="page-header">
-    <h1>Rooms</h1>
-  </header>
+  <h1 class="page-title">Rooms</h1>
 
   {{if .FloorGroups}}
   {{range .FloorGroups}}
-  <h2 class="floor-group-heading">{{.Label}}</h2>
-  <ul class="room-list">
+  <div class="floor-label">{{.Label}}</div>
+  <div class="rooms-grid">
     {{range .Rooms}}
-    <li class="room-card status-{{.WorstStatus}}"
-        hx-get="/rooms/{{.Name}}" hx-target="#main" hx-swap="innerHTML">
-      <div class="room-card-main">
-        <span class="room-name">{{.Name}}</span>
-        <span class="room-overall">{{.Overall}}</span>
-      </div>
-      <div class="room-counts">
-        {{if .Clean}}<span class="count-clean">{{.Clean}} clean</span>{{end}}
-        {{if .Due}}<span class="count-due">{{.Due}} due</span>{{end}}
-        {{if .Dirty}}<span class="count-dirty">{{.Dirty}} dirty</span>{{end}}
-        {{if .VeryDirty}}<span class="count-very-dirty">{{.VeryDirty}} very dirty</span>{{end}}
-        {{if .Unknown}}<span class="count-unknown">{{.Unknown}} unknown</span>{{end}}
-      </div>
-      <label class="room-floor" onclick="event.stopPropagation()">
-        <span class="room-floor-label">Floor</span>
-        <select name="floor"
-                hx-post="/rooms/{{.Name}}/floor"
-                hx-trigger="change"
-                hx-target="#main"
-                hx-swap="innerHTML"
-                hx-include="this">
-          {{$f := .Floor}}
-          {{range $i := seq 0 5}}
-          <option value="{{$i}}" {{if eq $i $f}}selected{{end}}>{{floorLabel $i}}</option>
-          {{end}}
-        </select>
-      </label>
-    </li>
+    <button class="room-card"
+            hx-get="/rooms/{{.Name}}" hx-target="#main" hx-swap="innerHTML">
+      <div class="room-mono">{{.Monogram}}</div>
+      <div class="room-card-name">{{.Name}}</div>
+      <div class="room-card-sub">{{.Total}} {{if eq .Total 1}}chore{{else}}chores{{end}} &middot; {{.DueCount}} due</div>
+    </button>
     {{end}}
-  </ul>
+  </div>
   {{end}}
   {{else}}
-  <div class="empty-state"><p>No rooms yet. Add tasks with rooms assigned.</p></div>
+  <div class="empty-state">No rooms yet. Add tasks with rooms assigned.</div>
   {{end}}
 </div>
 {{end}}

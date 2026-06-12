@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/user/chore-scheduler/internal/models"
@@ -17,14 +18,20 @@ type RoomGroup struct {
 
 // TodayData is the view model for the today page.
 type TodayData struct {
-	Date        time.Time
-	Groups      []RoomGroup
-	TotalEffort int
+	Date         time.Time
+	DateLabel    string // "FRI 12 JUN"
+	Groups       []RoomGroup
+	TodayCount   int
+	TotalEffort  int
+	MaxEffort    int
+	EffortPct    int // 0–100 for the capacity bar
+	OverdueCount int
 }
 
 // UpcomingDay groups tasks for a single day in the upcoming view.
 type UpcomingDay struct {
 	Date        time.Time
+	DayLabel    string // "Today", "Tomorrow", "Mon 12 Jun"
 	IsToday     bool
 	IsTomorrow  bool
 	Tasks       []*models.Task
@@ -55,6 +62,8 @@ func (s *Server) handleToday(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	maxEffort, _ := s.configRepo.GetMaxDailyEffort()
+
 	byRoom := make(map[string][]*models.Task)
 	totalEffort := 0
 	for _, st := range scheduled {
@@ -73,11 +82,40 @@ func (s *Server) handleToday(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(rooms)
 
 	groups := make([]RoomGroup, 0, len(rooms))
+	todayCount := 0
 	for _, room := range rooms {
-		groups = append(groups, RoomGroup{Room: room, Tasks: byRoom[room]})
+		g := RoomGroup{Room: room, Tasks: byRoom[room]}
+		groups = append(groups, g)
+		todayCount += len(g.Tasks)
 	}
 
-	render(w, "today.html", TodayData{Date: today, Groups: groups, TotalEffort: totalEffort})
+	// Count overdue tasks (past their scheduled date, not yet completed)
+	allTasks, _ := s.taskRepo.GetAll()
+	overdueCount := 0
+	for _, t := range allTasks {
+		if t.IsOverdue() {
+			overdueCount++
+		}
+	}
+
+	effortPct := 0
+	if maxEffort > 0 {
+		effortPct = totalEffort * 100 / maxEffort
+		if effortPct > 100 {
+			effortPct = 100
+		}
+	}
+
+	render(w, "today.html", TodayData{
+		Date:         today,
+		DateLabel:    strings.ToUpper(today.Format("Mon 2 Jan")),
+		Groups:       groups,
+		TodayCount:   todayCount,
+		TotalEffort:  totalEffort,
+		MaxEffort:    maxEffort,
+		EffortPct:    effortPct,
+		OverdueCount: overdueCount,
+	})
 }
 
 func (s *Server) handleUpcoming(w http.ResponseWriter, r *http.Request) {
@@ -110,8 +148,20 @@ func (s *Server) handleUpcoming(w http.ResponseWriter, r *http.Request) {
 			effort += task.Effort
 		}
 
+		if len(tasks) == 0 {
+			continue
+		}
+
+		label := date.Format("Mon 2 Jan")
+		if i == 0 {
+			label = "Today"
+		} else if i == 1 {
+			label = "Tomorrow"
+		}
+
 		grid = append(grid, UpcomingDay{
 			Date:        date,
+			DayLabel:    label,
 			IsToday:     i == 0,
 			IsTomorrow:  i == 1,
 			Tasks:       tasks,
@@ -127,6 +177,5 @@ func (s *Server) handleReschedule(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// Return the refreshed today fragment
 	s.handleToday(w, r)
 }

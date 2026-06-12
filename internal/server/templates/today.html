@@ -1,50 +1,85 @@
 {{define "today.html"}}
 <div class="page">
-  <header class="page-header">
-    <h1>Today</h1>
-    <span class="date-label">{{.Date.Format "Mon, 2 Jan"}}</span>
-  </header>
+  <div class="today-head">
+    <div>
+      <h1>Today</h1>
+      <div class="today-meta">
+        {{.TodayCount}} to do
+        {{if .OverdueCount}} &middot; <span class="overdue-text">{{.OverdueCount}} overdue</span>{{end}}
+      </div>
+    </div>
+    <span class="date-chip">{{.DateLabel}}</span>
+  </div>
+
+  <div class="effort-track-wrap">
+    <div class="effort-track">
+      <div class="effort-fill" style="width:{{.EffortPct}}%"></div>
+    </div>
+    <div class="effort-mono">EFFORT {{.TotalEffort}} / {{.MaxEffort}} TODAY</div>
+  </div>
 
   {{if .Groups}}
-  <div class="effort-bar">
-    <span class="effort-label">Total effort: <strong>{{.TotalEffort}}</strong></span>
-  </div>
-  {{range .Groups}}
-  <h2 class="room-group-heading">{{.Room}}</h2>
-  <ul class="task-cards">
-    {{range .Tasks}}
-    <li class="task-card {{if .IsOverdue}}task-overdue{{end}}" id="task-{{.ID}}">
-      <div class="task-card-body">
-        <div class="task-info">
-          <span class="task-name">{{.Name}}</span>
-          <span class="task-meta">{{.Room}} &middot; {{effortLabel .Effort}}</span>
-          {{if .IsOverdue}}<span class="badge badge-overdue">Overdue</span>{{end}}
-        </div>
-        <div class="task-actions">
-          <button class="btn btn-complete"
-                  hx-post="/tasks/{{.ID}}/complete"
-                  hx-target="#main"
-                  hx-swap="innerHTML"
-                  title="Complete">&#10003;</button>
-          <button class="btn btn-secondary btn-sm"
+  <div class="today-groups">
+    {{range .Groups}}
+    <div class="room-section">
+      <div class="room-label">{{.Room}}</div>
+      {{range .Tasks}}
+      <div class="swipe-row" data-id="{{.ID}}">
+        <div class="swipe-actions">
+          <button class="swipe-btn swipe-snooze"
                   hx-post="/tasks/{{.ID}}/postpone"
-                  hx-target="#main"
-                  hx-swap="innerHTML"
-                  hx-confirm="Postpone to tomorrow?"
-                  title="Postpone">&#8594;1d</button>
-          <a class="btn btn-secondary btn-sm"
-             hx-get="/tasks/{{.ID}}/edit"
-             hx-target="#main"
-             hx-swap="innerHTML">Edit</a>
+                  hx-target="#main" hx-swap="innerHTML">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 2.5l-3 2.5M18 2.5l3 2.5"/></svg>
+            Snooze
+          </button>
+          <button class="swipe-btn swipe-edit"
+                  hx-get="/tasks/{{.ID}}/edit"
+                  hx-target="#main" hx-swap="innerHTML">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14.5 5.5l4 4"/></svg>
+            Edit
+          </button>
+        </div>
+        <div class="swipe-card">
+          <div class="task-card {{if .IsOverdue}}is-overdue{{end}}">
+            {{if .IsOverdue}}<span class="accent-bar"></span>{{end}}
+            <div class="task-main">
+              <div class="task-name">{{.Name}}</div>
+              <div class="task-sub">
+                {{effortDots .Effort}}
+                {{if .IsOverdue}}<span class="overdue-badge">Overdue</span>{{end}}
+              </div>
+            </div>
+            <div class="task-actions-desktop">
+              <button class="icon-btn"
+                      hx-post="/tasks/{{.ID}}/postpone"
+                      hx-target="#main" hx-swap="innerHTML"
+                      title="Snooze 1 day">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 2.5l-3 2.5M18 2.5l3 2.5"/></svg>
+              </button>
+              <button class="icon-btn"
+                      hx-get="/tasks/{{.ID}}/edit"
+                      hx-target="#main" hx-swap="innerHTML"
+                      title="Edit">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14.5 5.5l4 4"/></svg>
+              </button>
+            </div>
+            <button class="done-btn"
+                    hx-post="/tasks/{{.ID}}/complete"
+                    hx-target="#main" hx-swap="innerHTML"
+                    title="Mark done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+            </button>
+          </div>
         </div>
       </div>
-    </li>
+      {{end}}
+    </div>
     {{end}}
-  </ul>
-  {{end}}
+  </div>
   {{else}}
-  <div class="empty-state">
-    <p>Nothing scheduled for today 🎉</p>
+  <div class="all-done">
+    <div class="all-done-title">All done for today</div>
+    <div class="all-done-sub">Nice work. Enjoy the rest of your day.</div>
   </div>
   {{end}}
 </div>

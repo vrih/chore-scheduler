@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type TaskFormData struct {
 	Task  *models.Task
 	Error string
 	IsNew bool
+	Rooms []string
 }
 
 func (s *Server) handleTaskList(w http.ResponseWriter, r *http.Request) {
@@ -39,22 +41,36 @@ func (s *Server) handleTaskList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sort by due date (soonest first, nil last)
+	sort.Slice(tasks, func(i, j int) bool {
+		ti, tj := tasks[i].NextScheduled, tasks[j].NextScheduled
+		if ti == nil {
+			return false
+		}
+		if tj == nil {
+			return true
+		}
+		return ti.Before(*tj)
+	})
+
 	render(w, "tasks_list.html", TaskListData{Tasks: tasks, OverdueOnly: overdueOnly})
 }
 
 func (s *Server) handleTaskNew(w http.ResponseWriter, r *http.Request) {
-	render(w, "task_form.html", TaskFormData{Task: &models.Task{Effort: 2, FrequencyDays: 7}, IsNew: true})
+	rooms, _ := s.taskRepo.GetAllRooms()
+	render(w, "task_form.html", TaskFormData{Task: &models.Task{Effort: 2, FrequencyDays: 7}, IsNew: true, Rooms: rooms})
 }
 
 func (s *Server) handleTaskCreate(w http.ResponseWriter, r *http.Request) {
 	task, errMsg := parseTaskForm(r)
+	rooms, _ := s.taskRepo.GetAllRooms()
 	if errMsg != "" {
-		render(w, "task_form.html", TaskFormData{Task: task, Error: errMsg, IsNew: true})
+		render(w, "task_form.html", TaskFormData{Task: task, Error: errMsg, IsNew: true, Rooms: rooms})
 		return
 	}
 
 	if err := s.taskRepo.Create(task); err != nil {
-		render(w, "task_form.html", TaskFormData{Task: task, Error: err.Error(), IsNew: true})
+		render(w, "task_form.html", TaskFormData{Task: task, Error: err.Error(), IsNew: true, Rooms: rooms})
 		return
 	}
 	if err := s.scheduler.ScheduleTask(task); err != nil {
@@ -78,7 +94,8 @@ func (s *Server) handleTaskEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "task not found", http.StatusNotFound)
 		return
 	}
-	render(w, "task_form.html", TaskFormData{Task: task, IsNew: false})
+	rooms, _ := s.taskRepo.GetAllRooms()
+	render(w, "task_form.html", TaskFormData{Task: task, IsNew: false, Rooms: rooms})
 }
 
 func (s *Server) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {
