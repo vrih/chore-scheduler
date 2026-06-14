@@ -41,7 +41,6 @@ func (s *Scheduler) Schedule() error {
 		return fmt.Errorf("failed to get max daily effort: %w", err)
 	}
 
-	// Get all tasks that need scheduling
 	tasks, err := s.taskRepo.GetNeedingSchedule()
 	if err != nil {
 		return fmt.Errorf("failed to get tasks: %w", err)
@@ -51,45 +50,20 @@ func (s *Scheduler) Schedule() error {
 		return nil
 	}
 
-	// Sort by priority
-	tasks = SortByPriority(tasks)
-
-	// Track which tasks have been scheduled in this run
-	scheduled := make(map[int64]bool)
-
-	// Schedule each task
+	var pool []*models.Task
 	for _, task := range tasks {
-		if scheduled[task.ID] {
-			continue
-		}
-
-		// Check if task already has a schedule entry for the future
-		alreadyScheduled, err := s.hasScheduleEntry(task.ID)
+		already, err := s.hasScheduleEntry(task.ID)
 		if err != nil {
 			return fmt.Errorf("failed to check schedule: %w", err)
 		}
-		if alreadyScheduled {
-			scheduled[task.ID] = true
-			continue
+		if !already {
+			pool = append(pool, task)
 		}
-
-		// Find the best day for this task
-		startDate := s.getSchedulingStartDate(task)
-		date, err := s.FindNextAvailableDay(task.Effort, startDate, maxEffort)
-		if err != nil {
-			return fmt.Errorf("failed to find available day for task %d: %w", task.ID, err)
-		}
-
-		// Create scheduled task entry
-		st := models.NewScheduledTask(task.ID, date)
-		if err := s.scheduledRepo.Create(st); err != nil {
-			return fmt.Errorf("failed to schedule task %d: %w", task.ID, err)
-		}
-
-		scheduled[task.ID] = true
 	}
 
-	return nil
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	return s.scheduleBatch(pool, today, maxEffort)
 }
 
 // RefreshSchedule cleans up stale past entries and reschedules any tasks
@@ -179,16 +153,13 @@ func (s *Scheduler) Reschedule() error {
 // RescheduleFromDate reschedules all tasks from a given date onwards
 // This is used to optimize the schedule after an early completion frees up capacity
 func (s *Scheduler) RescheduleFromDate(fromDate time.Time) error {
-	// Normalize date and use today if fromDate is in the past
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	fromDate = time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.UTC)
-
 	if fromDate.Before(today) {
 		fromDate = today
 	}
 
-	// Get all scheduled entries from that date forward
 	scheduled, err := s.scheduledRepo.GetFromDate(fromDate)
 	if err != nil {
 		return fmt.Errorf("failed to get scheduled tasks: %w", err)
@@ -198,58 +169,129 @@ func (s *Scheduler) RescheduleFromDate(fromDate time.Time) error {
 		return nil
 	}
 
-	// Collect unique task IDs
 	taskIDs := make(map[int64]bool)
 	for _, st := range scheduled {
 		taskIDs[st.TaskID] = true
 	}
 
-	// Fetch the actual tasks
 	var tasks []*models.Task
 	for taskID := range taskIDs {
 		task, err := s.taskRepo.Get(taskID)
 		if err != nil {
-			continue // Task may have been deleted
+			continue
 		}
 		tasks = append(tasks, task)
 	}
 
-	// Delete the schedule entries for these tasks
 	for taskID := range taskIDs {
 		if err := s.scheduledRepo.ClearForTask(taskID); err != nil {
 			return fmt.Errorf("failed to clear schedule for task %d: %w", taskID, err)
 		}
 	}
 
-	// Get max effort
 	maxEffort, err := s.configRepo.GetMaxDailyEffort()
 	if err != nil {
 		return fmt.Errorf("failed to get max daily effort: %w", err)
 	}
 
-	// Sort tasks by priority
-	tasks = SortByPriority(tasks)
+	return s.scheduleBatch(tasks, fromDate, maxEffort)
+}
 
-	// Reschedule each task
-	for _, task := range tasks {
-		startDate := s.getSchedulingStartDate(task)
-		// Use the later of fromDate or the task's natural start date
-		if startDate.Before(fromDate) {
-			startDate = fromDate
-		}
+// scheduleBatch assigns tasks to days starting from startDate using room-aware
+// day packing: the highest-priority task anchors each day, then same-room tasks
+// are preferred over different-room tasks to minimise context-switching.
+func (s *Scheduler) scheduleBatch(tasks []*models.Task, startDate time.Time, maxEffort int) error {
+	if len(tasks) == 0 {
+		return nil
+	}
 
-		date, err := s.FindNextAvailableDay(task.Effort, startDate, maxEffort)
+	pool := SortByPriority(tasks)
+	windowEnd := startDate.AddDate(0, 0, SchedulingWindowDays)
+
+	for date := startDate; len(pool) > 0 && date.Before(windowEnd); date = date.AddDate(0, 0, 1) {
+		currentEffort, err := s.scheduledRepo.GetDailyEffort(date)
 		if err != nil {
-			return fmt.Errorf("failed to find available day for task %d: %w", task.ID, err)
+			return fmt.Errorf("failed to get daily effort for %s: %w", date.Format("2006-01-02"), err)
 		}
 
-		st := models.NewScheduledTask(task.ID, date)
-		if err := s.scheduledRepo.Create(st); err != nil {
-			return fmt.Errorf("failed to schedule task %d: %w", task.ID, err)
+		capacity := maxEffort - currentEffort
+		if capacity <= 0 {
+			continue
 		}
+
+		var eligible, notYet []*models.Task
+		for _, t := range pool {
+			if !s.getSchedulingStartDate(t).After(date) {
+				eligible = append(eligible, t)
+			} else {
+				notYet = append(notYet, t)
+			}
+		}
+
+		if len(eligible) == 0 {
+			continue
+		}
+
+		chosen, leftover := packDay(eligible, capacity)
+
+		for _, task := range chosen {
+			st := models.NewScheduledTask(task.ID, date)
+			if err := s.scheduledRepo.Create(st); err != nil {
+				return fmt.Errorf("failed to schedule task %d: %w", task.ID, err)
+			}
+		}
+
+		pool = SortByPriority(append(leftover, notYet...))
 	}
 
 	return nil
+}
+
+// packDay fills a single day's capacity from a priority-sorted eligible list.
+// The first slot goes to the highest-priority task; subsequent slots prefer
+// tasks from a room already on the day before falling back to highest priority.
+// Returns (chosen, remaining).
+func packDay(eligible []*models.Task, capacity int) ([]*models.Task, []*models.Task) {
+	chosen := make([]*models.Task, 0)
+	remaining := make([]*models.Task, len(eligible))
+	copy(remaining, eligible)
+	roomsOnDay := make(map[int64]bool)
+
+	for capacity > 0 && len(remaining) > 0 {
+		bestIdx := -1
+
+		// Prefer a same-room task once the day has at least one room established
+		if len(roomsOnDay) > 0 {
+			for i, t := range remaining {
+				if roomsOnDay[t.RoomID] && t.Effort <= capacity {
+					bestIdx = i
+					break
+				}
+			}
+		}
+
+		// Fall back to the highest-priority task that fits
+		if bestIdx == -1 {
+			for i, t := range remaining {
+				if t.Effort <= capacity {
+					bestIdx = i
+					break
+				}
+			}
+		}
+
+		if bestIdx == -1 {
+			break
+		}
+
+		task := remaining[bestIdx]
+		chosen = append(chosen, task)
+		roomsOnDay[task.RoomID] = true
+		capacity -= task.Effort
+		remaining = append(remaining[:bestIdx], remaining[bestIdx+1:]...)
+	}
+
+	return chosen, remaining
 }
 
 // CompleteTaskAndReschedule handles completing a task and rescheduling affected tasks

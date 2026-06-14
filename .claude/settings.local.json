@@ -26,7 +26,8 @@
       "Bash(curl -s -X POST '127.0.0.1:18099/rooms/Kitchen/floor' -d 'floor=1')",
       "Bash(curl -s 127.0.0.1:18099/rooms)",
       "Bash(curl -s -X POST '127.0.0.1:18099/tasks/1/complete' -d 'return=room')",
-      "WebFetch(domain:api.anthropic.com)"
+      "WebFetch(domain:api.anthropic.com)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

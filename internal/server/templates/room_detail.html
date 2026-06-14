@@ -21,7 +21,7 @@
           <span>{{effortLabel .Effort}} &middot; every {{.FrequencyDays}}d</span>
         </div>
         <div class="task-last">
-          {{if .LastCompleted}}Last: {{.LastCompleted.Format "2 Jan"}}{{else}}Never done{{end}}
+          {{if .NextScheduled}}{{if .IsOverdue}}<span style="color:var(--overdue)">Overdue {{.NextScheduled.Format "2 Jan"}}</span>{{else}}Due {{.NextScheduled.Format "2 Jan"}}{{end}}{{else}}Not scheduled{{end}}
         </div>
       </div>
       <button class="icon-btn"

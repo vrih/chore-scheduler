@@ -791,6 +791,52 @@ func TestScheduler_RefreshSchedule_NoopForFutureTask(t *testing.T) {
 	assert.Equal(t, inThreeDays, schedDate, "future task should remain on its original date")
 }
 
+func TestScheduler_RoomGrouping(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	taskRepo := repository.NewTaskRepository(database)
+	configRepo := repository.NewConfigRepository(database)
+	scheduledRepo := repository.NewScheduledTaskRepository(database)
+
+	// maxEffort=4: two effort-2 tasks fit per day
+	require.NoError(t, configRepo.SetMaxDailyEffort(4))
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	// Three tasks all eligible today. kitchenA has highest priority (overdue),
+	// bathroomB is mid-priority, kitchenC is lowest. With room grouping, day 1
+	// should get kitchenA + kitchenC (same room), not kitchenA + bathroomB.
+	yesterday := today.AddDate(0, 0, -1)
+	kitchenA := &models.Task{Name: "Kitchen A", Room: "Kitchen", Effort: 2, FrequencyDays: 7, NextScheduled: &yesterday}
+	bathroomB := &models.Task{Name: "Bathroom B", Room: "Bathroom", Effort: 2, FrequencyDays: 7, NextScheduled: &today}
+	kitchenC := &models.Task{Name: "Kitchen C", Room: "Kitchen", Effort: 2, FrequencyDays: 7, NextScheduled: &today}
+
+	require.NoError(t, taskRepo.Create(kitchenA))
+	require.NoError(t, taskRepo.Create(bathroomB))
+	require.NoError(t, taskRepo.Create(kitchenC))
+
+	scheduler := NewScheduler(taskRepo, configRepo, scheduledRepo)
+	require.NoError(t, scheduler.Schedule())
+
+	schedA, _ := scheduledRepo.GetByTask(kitchenA.ID)
+	schedB, _ := scheduledRepo.GetByTask(bathroomB.ID)
+	schedC, _ := scheduledRepo.GetByTask(kitchenC.ID)
+	require.Len(t, schedA, 1)
+	require.Len(t, schedB, 1)
+	require.Len(t, schedC, 1)
+
+	dateA := time.Date(schedA[0].ScheduledDate.Year(), schedA[0].ScheduledDate.Month(), schedA[0].ScheduledDate.Day(), 0, 0, 0, 0, time.UTC)
+	dateB := time.Date(schedB[0].ScheduledDate.Year(), schedB[0].ScheduledDate.Month(), schedB[0].ScheduledDate.Day(), 0, 0, 0, 0, time.UTC)
+	dateC := time.Date(schedC[0].ScheduledDate.Year(), schedC[0].ScheduledDate.Month(), schedC[0].ScheduledDate.Day(), 0, 0, 0, 0, time.UTC)
+
+	// Both kitchen tasks should land on the same day
+	assert.Equal(t, dateA, dateC, "same-room tasks should be grouped on the same day")
+	// Bathroom task should be on a different day
+	assert.NotEqual(t, dateA, dateB, "different-room task should be pushed to another day")
+}
+
 func TestScheduler_RefreshSchedule_OverdueGoesToEarliestAvailable(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()

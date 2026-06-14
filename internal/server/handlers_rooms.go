@@ -105,6 +105,19 @@ func (s *Server) renderRoomDetail(w http.ResponseWriter, name string) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	sort.Slice(tasks, func(i, j int) bool {
+		ti, tj := tasks[i].NextScheduled, tasks[j].NextScheduled
+		if ti == nil && tj == nil {
+			return false
+		}
+		if ti == nil {
+			return false
+		}
+		if tj == nil {
+			return true
+		}
+		return ti.Before(*tj)
+	})
 	render(w, "room_detail.html", RoomDetailData{Name: name, Tasks: tasks})
 }
 
