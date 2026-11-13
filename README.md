@@ -45,6 +45,16 @@ chmod +x chore-scheduler-linux-arm64
 sudo mv chore-scheduler-linux-arm64 /usr/local/bin/chore-scheduler
 ```
 
+### Docker (web server)
+
+`docker-compose.yml` builds the image and runs `serve` with `restart: unless-stopped`, so it comes back after a reboot. Put machine-specific settings in a `.env` next to it (see the comment at the top of the compose file), then:
+
+```bash
+git pull && docker-compose up -d --build
+```
+
+The container runs as `CHORE_UID:CHORE_GID`, so set these to the owner of `CHORE_DATA_DIR`. The host CLI can then share the same database.
+
 ## Quick Start
 
 ### 1. Set Maximum Daily Effort

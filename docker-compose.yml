@@ -1,0 +1,27 @@
+# Machine-specific values go in a .env file next to this one (not committed):
+#   CHORE_DATA_DIR  host folder holding chore.db      (default ./data)
+#   CHORE_UID/GID   owner of that folder               (default 1000:1000)
+#   CHORE_BIND      host address to publish on         (default 127.0.0.1)
+#   CHORE_PORT      host port                          (default 8080)
+#   TZ              timezone for "today"               (default Europe/London)
+version: "2.4"
+
+services:
+  chores:
+    container_name: chores
+    build: .
+    image: chore-scheduler:local
+    user: "${CHORE_UID:-1000}:${CHORE_GID:-1000}"
+    volumes:
+      - ${CHORE_DATA_DIR:-./data}:/data
+    environment:
+      - TZ=${TZ:-Europe/London}
+    ports:
+      - "${CHORE_BIND:-127.0.0.1}:${CHORE_PORT:-8080}:8080"
+    restart: unless-stopped
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
