@@ -55,6 +55,12 @@ git pull && docker-compose up -d --build
 
 The container runs as `CHORE_UID:CHORE_GID`, so set these to the owner of `CHORE_DATA_DIR`. The host CLI can then share the same database.
 
+For the daily email on a host without `sendmail`, `scripts/smtp-send.py` sends the message over SMTP. Its config file is documented at the top of the script:
+
+```bash
+docker exec chores chore-scheduler email | python3 scripts/smtp-send.py ~/.config/chore-scheduler/smtp.conf
+```
+
 ## Quick Start
 
 ### 1. Set Maximum Daily Effort
